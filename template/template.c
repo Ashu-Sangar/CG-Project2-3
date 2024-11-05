@@ -18,7 +18,9 @@
 
 vec4 map_coords(int x, int y);  
 void create_rotation();
+void init_block();
 void init_grassblock();
+void init_texture(float x, float y);
 void generate_pyramid(int x_size, int z_size);
 
 // Global variables
@@ -29,25 +31,17 @@ int right_button_down = 0;
 int dragging = 0;
 int has_moved = 0;
 vec4 previous_point = {0.0f, 0.0f, 0.0f, 1.0f}; // To store the previous point during drag
-
 float scale_cube = 0.25f;
-
-// Modify global variables
 int num_vertices_per_block = 36; // Each block has 36 vertices
 int num_blocks = 0; // Total number of blocks, will be calculated
 int num_vertices = 0; // Total number of vertices, will be calculated
-
 int x_size = 5;
 int z_size = 5; 
-
-
-GLuint buffer;
 
 vec4 *positions = NULL;
 vec2 *tex_coords = NULL;
 vec4 *block_positions = NULL; // Store positions for a single block
 vec2 *block_tex_coords = NULL; // Store texture coordinates for a single block
-
 
 mat4 ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
 mat4 prev_ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
@@ -99,7 +93,6 @@ void init(void)
     glGenVertexArraysAPPLE(1, &vao);
     glBindVertexArrayAPPLE(vao);
 
-
     GLuint buffer;
     glGenBuffers(1, &buffer);
     glBindBuffer(GL_ARRAY_BUFFER, buffer);
@@ -126,61 +119,23 @@ void init(void)
     glDepthRange(1,0);
 }
 
-void init_texture(float rcornerX, float rcornerY){
-    //front
-    block_tex_coords[0] = (vec2) {rcornerX, rcornerY};
-    block_tex_coords[1] = (vec2) {rcornerX - .25, rcornerY - .25};
-    block_tex_coords[2] = (vec2) {rcornerX - .25, rcornerY};
-    block_tex_coords[3] = (vec2) {rcornerX, rcornerY};
-    block_tex_coords[4] = (vec2) {rcornerX, rcornerY - .25};
-    block_tex_coords[5] = (vec2) {rcornerX - .25, rcornerY - .25};
+void init_block(){
+    if (block_positions == NULL) {
+        block_positions = (vec4 *) malloc(sizeof(vec4) * num_vertices_per_block);
+        if (block_positions == NULL) {
+            fprintf(stderr, "Failed to allocate memory for block_positions.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+    
+    if (block_tex_coords == NULL) {
+        block_tex_coords = (vec2 *) malloc(sizeof(vec2) * num_vertices_per_block);
+        if (block_tex_coords == NULL) {
+            fprintf(stderr, "Failed to allocate memory for block_tex_coords.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
 
-    //left size
-    block_tex_coords[6] = (vec2) {rcornerX, rcornerY};
-    block_tex_coords[7] = (vec2) {rcornerX - .25, rcornerY - .25};
-    block_tex_coords[8] = (vec2) {rcornerX - .25, rcornerY};
-    block_tex_coords[9] = (vec2) {rcornerX, rcornerY};
-    block_tex_coords[10] = (vec2) {rcornerX, rcornerY - .25};
-    block_tex_coords[11] = (vec2) {rcornerX - .25, rcornerY - .25};
-
-    //rs
-    block_tex_coords[12] = (vec2) {rcornerX, rcornerY};
-    block_tex_coords[13] = (vec2) {rcornerX, rcornerY - .25};
-    block_tex_coords[14] = (vec2) {rcornerX - .25, rcornerY};
-    block_tex_coords[15] = (vec2) {rcornerX, rcornerY - .25};
-    block_tex_coords[16] = (vec2) {rcornerX - .25, rcornerY - .25};
-    block_tex_coords[17] = (vec2) {rcornerX - .25, rcornerY};
-
-    //bs
-    block_tex_coords[18] = (vec2) {rcornerX, rcornerY};
-    block_tex_coords[19] = (vec2) {rcornerX, rcornerY - .25};
-    block_tex_coords[20] = (vec2) {rcornerX - .25, rcornerY};
-    block_tex_coords[21] = (vec2) {rcornerX, rcornerY - .25};
-    block_tex_coords[22] = (vec2) {rcornerX - .25, rcornerY - .25};
-    block_tex_coords[23] = (vec2) {rcornerX - .25, rcornerY};
-
-    //top
-    block_tex_coords[24] = (vec2) {rcornerX, rcornerY};
-    block_tex_coords[25] = (vec2) {rcornerX, rcornerY - .25};
-    block_tex_coords[26] = (vec2) {rcornerX - .25, rcornerY};
-    block_tex_coords[27] = (vec2) {rcornerX, rcornerY - .25};
-    block_tex_coords[28] = (vec2) {rcornerX - .25, rcornerY - .25};
-    block_tex_coords[29] = (vec2) {rcornerX - .25, rcornerY};
-
-    //bottom
-    block_tex_coords[30] = (vec2) {rcornerX, rcornerY};
-    block_tex_coords[31] = (vec2) {rcornerX, rcornerY - .25};
-    block_tex_coords[32] = (vec2) {rcornerX - .25, rcornerY};
-    block_tex_coords[33] = (vec2) {rcornerX, rcornerY - .25};
-    block_tex_coords[34] = (vec2) {rcornerX - .25, rcornerY - .25};
-    block_tex_coords[35] = (vec2) {rcornerX - .25, rcornerY};
-}
-
-
-void init_grassblock() {
-    block_positions = (vec4 *) malloc(sizeof(vec4) * num_vertices_per_block);
-    block_tex_coords = (vec2 *) malloc(sizeof(vec2) * num_vertices_per_block);    
-    //front
     block_positions[0] = (vec4) {.25, -.25,  0.0,  1.0}; 
     block_positions[1] = (vec4) {-0.25,  0.25,  0.0,  1.0}; 
     block_positions[2] = (vec4) {-0.25, -.25,  0.0,  1.0}; 
@@ -233,7 +188,12 @@ void init_grassblock() {
         block_positions[i].y *= scale_cube;
         block_positions[i].z *= scale_cube;
     }
+}
 
+void init_grassblock() {
+    init_block(); 
+
+    //textures for grassblock
     block_tex_coords[0] = (vec2) {0.75, 1.00};
     block_tex_coords[1] = (vec2) {0.50, 0.75};
     block_tex_coords[2] = (vec2) {0.50, 1.00};
@@ -262,7 +222,6 @@ void init_grassblock() {
     block_tex_coords[22] = (vec2) {0.50, 0.75};
     block_tex_coords[23] = (vec2) {0.50, 1.00};
 
-
     block_tex_coords[24] = (vec2) {0.25, .25};
     block_tex_coords[25] = (vec2) {0.25, 0};
     block_tex_coords[26] = (vec2) {0, .25};
@@ -276,6 +235,56 @@ void init_grassblock() {
     block_tex_coords[33] = (vec2) {1, .75};
     block_tex_coords[34] = (vec2) {.75, .75};
     block_tex_coords[35] = (vec2) {0.75, 1};
+}
+
+void init_texture(float rcornerX, float rcornerY){
+    //front
+    block_tex_coords[0] = (vec2) {rcornerX, rcornerY};
+    block_tex_coords[1] = (vec2) {rcornerX - .25, rcornerY - .25};
+    block_tex_coords[2] = (vec2) {rcornerX - .25, rcornerY};
+    block_tex_coords[3] = (vec2) {rcornerX, rcornerY};
+    block_tex_coords[4] = (vec2) {rcornerX, rcornerY - .25};
+    block_tex_coords[5] = (vec2) {rcornerX - .25, rcornerY - .25};
+
+    //ls
+    block_tex_coords[6] = (vec2) {rcornerX, rcornerY};
+    block_tex_coords[7] = (vec2) {rcornerX - .25, rcornerY - .25};
+    block_tex_coords[8] = (vec2) {rcornerX - .25, rcornerY};
+    block_tex_coords[9] = (vec2) {rcornerX, rcornerY};
+    block_tex_coords[10] = (vec2) {rcornerX, rcornerY - .25};
+    block_tex_coords[11] = (vec2) {rcornerX - .25, rcornerY - .25};
+
+    //rs
+    block_tex_coords[12] = (vec2) {rcornerX, rcornerY};
+    block_tex_coords[13] = (vec2) {rcornerX, rcornerY - .25};
+    block_tex_coords[14] = (vec2) {rcornerX - .25, rcornerY};
+    block_tex_coords[15] = (vec2) {rcornerX, rcornerY - .25};
+    block_tex_coords[16] = (vec2) {rcornerX - .25, rcornerY - .25};
+    block_tex_coords[17] = (vec2) {rcornerX - .25, rcornerY};
+
+    //bs
+    block_tex_coords[18] = (vec2) {rcornerX, rcornerY};
+    block_tex_coords[19] = (vec2) {rcornerX, rcornerY - .25};
+    block_tex_coords[20] = (vec2) {rcornerX - .25, rcornerY};
+    block_tex_coords[21] = (vec2) {rcornerX, rcornerY - .25};
+    block_tex_coords[22] = (vec2) {rcornerX - .25, rcornerY - .25};
+    block_tex_coords[23] = (vec2) {rcornerX - .25, rcornerY};
+
+    //top
+    block_tex_coords[24] = (vec2) {rcornerX, rcornerY};
+    block_tex_coords[25] = (vec2) {rcornerX, rcornerY - .25};
+    block_tex_coords[26] = (vec2) {rcornerX - .25, rcornerY};
+    block_tex_coords[27] = (vec2) {rcornerX, rcornerY - .25};
+    block_tex_coords[28] = (vec2) {rcornerX - .25, rcornerY - .25};
+    block_tex_coords[29] = (vec2) {rcornerX - .25, rcornerY};
+
+    //bottom
+    block_tex_coords[30] = (vec2) {rcornerX, rcornerY};
+    block_tex_coords[31] = (vec2) {rcornerX, rcornerY - .25};
+    block_tex_coords[32] = (vec2) {rcornerX - .25, rcornerY};
+    block_tex_coords[33] = (vec2) {rcornerX, rcornerY - .25};
+    block_tex_coords[34] = (vec2) {rcornerX - .25, rcornerY - .25};
+    block_tex_coords[35] = (vec2) {rcornerX - .25, rcornerY};
 }
 
 void generate_pyramid(int x_size, int z_size) {
