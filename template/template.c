@@ -320,8 +320,8 @@ void generate_pyramid(int x_size, int z_size) {
                 }
 
                 // For layers > 0, randomly decide whether to include the block
-                if (layer > 0 && (rand() % 2 == 0)) {
-                    // 50% chance to exclude block
+                if (layer > 0 && (rand() % 100 < 53)) {
+                    // 53% chance to exclude block
                     continue; // Skip this block
                 }
 
@@ -356,7 +356,7 @@ void generate_pyramid(int x_size, int z_size) {
 
         // Call init_texture(1,1) after completing layer 0
         if (layer == 0) {
-            init_texture(1, 1);
+            init_texture(.75, .5);
         }
         y_translation -= block_size_x; // Move down for the next layer
     }
