@@ -16,44 +16,50 @@
 #include "initShader.h"
 #include "tempLib.h"
 
+//prototypes
 vec4 map_coords(int x, int y);  
 void create_rotation();
 void init_block();
 void init_grassblock();
 void init_texture(float x, float y);
 void generate_pyramid(int x_size, int z_size);
+void display_sun();
 
-// Global variables
+// mouse, rotation, and scaling variables
 float scale_factor = 1.0f; 
-int selected_object = 0;
 int left_button_down = 0;
 int right_button_down = 0;
 int dragging = 0;
 int has_moved = 0;
 vec4 previous_point = {0.0f, 0.0f, 0.0f, 1.0f}; // To store the previous point during drag
+vec4 initial_point = {0.0f, 0.0f, 0.0f, 1.0f};
+vec4 final_point = {0.0f, 0.0f, 0.0f, 1.0f};
+mat4 scaling_matrix = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
+mat4 rotation_matrix = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
+mat4 prev_ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
+
+//cube and platform global variables
 float scale_cube = 0.25f;
-int num_vertices_per_block = 36; // Each block has 36 vertices
-int num_blocks = 0; // Total number of blocks, will be calculated
-int num_vertices = 0; // Total number of vertices, will be calculated
+int num_vertices_per_block = 36; 
+int num_blocks = 0; 
+int num_vertices = 0;
 int x_size = 5;
 int z_size = 5; 
 
+//array global variable
 vec4 *positions = NULL;
 vec2 *tex_coords = NULL;
 vec4 *block_positions = NULL; // Store positions for a single block
-vec2 *block_tex_coords = NULL; // Store texture coordinates for a single block
+vec2 *block_tex_coords = NULL; 
+
+//sun global varibles
+vec4 *sun_positions = NULL;
+vec2 *sun_tex_coords = NULL;
+int num_vertices_sun = 0; // Number of vertices for the sun
+vec4 sun_position = {0.0f, 3.5f, 0.0f, 1.0f};
 
 mat4 ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
-mat4 prev_ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
-mat4 translation_matrix = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
-mat4 scaling_matrix = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
-mat4 rotation_matrix = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
-vec4 initial_point = {0.0f, 0.0f, 0.0f, 1.0f};
-vec4 final_point = {0.0f, 0.0f, 0.0f, 1.0f};
-
 GLuint ctm_location;
-
-mat4 model_matrix;
 
 void init(void)
 {
@@ -62,6 +68,7 @@ void init(void)
 
     init_grassblock();
     generate_pyramid(x_size, z_size);
+    display_sun();
 
     int tex_width = 64;
     int tex_height = 64;
@@ -388,35 +395,76 @@ void generate_pyramid(int x_size, int z_size) {
     free(temp_tex_coords);
 }
 
+void display_sun() {
+    init_block(); // Initialize block geometry for the sun
+
+    // Set the texture coordinates for the sun
+    init_texture(0.75f, .75f);
+
+    // Keep track of the starting index of the sun's vertices
+    int sun_start_index = num_vertices;
+
+    // Reallocate positions and tex_coords arrays to hold the additional sun vertices
+    int new_num_vertices = num_vertices + num_vertices_per_block;
+    positions = (vec4 *)realloc(positions, sizeof(vec4) * new_num_vertices);
+    tex_coords = (vec2 *)realloc(tex_coords, sizeof(vec2) * new_num_vertices);
+
+    if (!positions || !tex_coords) {
+        fprintf(stderr, "Memory allocation failed when adding sun vertices\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Copy the sun's block_positions and block_tex_coords to the end of positions and tex_coords
+    memcpy(positions + num_vertices, block_positions, sizeof(vec4) * num_vertices_per_block);
+    memcpy(tex_coords + num_vertices, block_tex_coords, sizeof(vec2) * num_vertices_per_block);
+
+    num_vertices = new_num_vertices; // Update total number of vertices
+
+    // Store the sun's start index and vertex count for later use
+    num_vertices_sun = num_vertices_per_block;
+    sun_positions = positions + sun_start_index;
+    sun_tex_coords = tex_coords + sun_start_index;
+}
 
 void display(void)
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-     // Create scaling matrix based on scale_factor
+    // Draw the scene
     mat4 scaling_matrix = scale(scale_factor, scale_factor, scale_factor);
-
-    // Combine scaling with rotation
     mat4 final_ctm = mm_multiplication(scaling_matrix, ctm);
-
-    // Send the updated ctm to the shader
     glUniformMatrix4fv(ctm_location, 1, GL_FALSE, (GLfloat *)&final_ctm);
-    // glPolygonMode(GL_FRONT, GL_FILL);
-    // glPolygonMode(GL_BACK, GL_LINE);
-    glDrawArrays(GL_TRIANGLES, 0, num_vertices);
+
+    // Draw all vertices except the sun's vertices
+    glDrawArrays(GL_TRIANGLES, 0, num_vertices - num_vertices_sun);
+
+    // Draw the sun
+    float sun_scale = 3.0f; // The size of the sun
+    mat4 sun_scaling = scale(sun_scale, sun_scale, sun_scale);
+    mat4 sun_translation = translate(sun_position.x, sun_position.y, sun_position.z);
+    mat4 sun_ctm = mm_multiplication(sun_translation, sun_scaling);
+
+    // Apply any global scaling if necessary
+    mat4 sun_final_ctm = mm_multiplication(final_ctm, sun_ctm);
+
+    // Send the sun's ctm to the shader
+    glUniformMatrix4fv(ctm_location, 1, GL_FALSE, (GLfloat *)&sun_final_ctm);
+
+    // Draw only the sun's vertices
+    glDrawArrays(GL_TRIANGLES, num_vertices - num_vertices_sun, num_vertices_sun);
 
     glutSwapBuffers();
 }
 
 void keyboard(unsigned char key, int mousex, int mousey) {
-    
+    float rotation_angle = 20.0f; // Rotation angle in degrees
     if (key == 'i') { // Zoom In
-        float zoom_increment = 1.02f;
+        float zoom_increment = 1.15f;
         scale_factor *= zoom_increment;
         glutPostRedisplay();
     }
     else if (key == 'o') { // Zoom Out
-        float zoom_decrement = 1.0f / 1.02f;
+        float zoom_decrement = 1.0f / 1.15f;
         scale_factor *= zoom_decrement;
         glutPostRedisplay(); 
     }
@@ -426,6 +474,37 @@ void keyboard(unsigned char key, int mousex, int mousey) {
         #else
         exit(0);
         #endif
+    }
+    // Rotate sun around the axes using rotation matrices
+    else if (key == '1') { // Rotate sun around X-axis (positive angle)
+        mat4 rotation = rotate_x(rotation_angle);
+        sun_position = mv_multiplication(rotation, sun_position);
+        glutPostRedisplay();
+    }
+    else if (key == '2') { // Rotate sun around X-axis (negative angle)
+        mat4 rotation = rotate_x(-rotation_angle);
+        sun_position = mv_multiplication(rotation, sun_position);
+        glutPostRedisplay();
+    }
+    else if (key == '3') { // Rotate sun around Y-axis (positive angle)
+        mat4 rotation = rotate_y(rotation_angle);
+        sun_position = mv_multiplication(rotation, sun_position);
+        glutPostRedisplay();
+    }
+    else if (key == '4') { // Rotate sun around Y-axis (negative angle)
+        mat4 rotation = rotate_y(-rotation_angle);
+        sun_position = mv_multiplication(rotation, sun_position);
+        glutPostRedisplay();
+    }
+    else if (key == '5') { // Rotate sun around Z-axis (positive angle)
+        mat4 rotation = rotate_z(rotation_angle);
+        sun_position = mv_multiplication(rotation, sun_position);
+        glutPostRedisplay();
+    }
+    else if (key == '6') { // Rotate sun around Z-axis (negative angle)
+        mat4 rotation = rotate_z(-rotation_angle);
+        sun_position = mv_multiplication(rotation, sun_position);
+        glutPostRedisplay();
     }
 }
 
