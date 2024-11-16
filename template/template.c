@@ -37,6 +37,8 @@ vec4 final_point = {0.0f, 0.0f, 0.0f, 1.0f};
 mat4 scaling_matrix = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
 mat4 rotation_matrix = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
 mat4 prev_ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
+mat4 ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
+GLuint ctm_location;
 
 //cube and platform global variables
 float scale_cube = 0.25f;
@@ -56,10 +58,13 @@ vec2 *block_tex_coords = NULL;
 vec4 *sun_positions = NULL;
 vec2 *sun_tex_coords = NULL;
 int num_vertices_sun = 0; // Number of vertices for the sun
-vec4 sun_position = {0.0f, 3.5f, 0.0f, 1.0f};
+vec4 sun_position = {0.0f, 4.0f, 0.0f, 1.0f};
 
-mat4 ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
-GLuint ctm_location;
+//platform reset:
+bool resetting = false; // Animation state
+int reset_step = 0; // Current step in the reset process
+int reset_steps = 100; // Total number of steps for the reset
+mat4 delta_ctm; // Incremental change matrix
 
 void init(void)
 {
@@ -372,7 +377,7 @@ void generate_pyramid(int x_size, int z_size) {
 
         // Call init_texture(1,1) after completing layer 0
         if (layer == 0) {
-            init_texture(.75, .5);
+            init_texture(.25, .75);
         }
         y_translation -= block_size_x; // Move down for the next layer
     }
@@ -424,6 +429,58 @@ void display_sun() {
     num_vertices_sun = num_vertices_per_block;
     sun_positions = positions + sun_start_index;
     sun_tex_coords = tex_coords + sun_start_index;
+}
+
+void idleReset() {
+    if (resetting && reset_step < reset_steps) {
+        // Incrementally reduce CTM
+        ctm = mm_subtraction(ctm, delta_ctm);
+        ++reset_step;
+
+        // Redisplay after each step
+        glutPostRedisplay();
+    } else {
+        // Reset complete
+        resetting = false;
+        glutIdleFunc(NULL); // Stop the idle function
+    }
+}
+
+void resetPlatform() {
+    if (!resetting) {
+        resetting = true;
+        reset_step = 0;
+
+        // Calculate the difference between CTM and identity
+        mat4 identity = {{1,0,0,0}, {0,1,0,0}, {0,0,1,0}, {0,0,0,1}};
+        mat4 diff = mm_subtraction(ctm, identity);
+
+        // Divide by steps to get the delta matrix
+        for (int i = 0; i < 4; ++i) {
+            delta_ctm.x.x = diff.x.x / reset_steps;
+            delta_ctm.x.y = diff.x.y / reset_steps;
+            delta_ctm.x.z = diff.x.z / reset_steps;
+            delta_ctm.x.w = diff.x.w / reset_steps;
+
+            delta_ctm.y.x = diff.y.x / reset_steps;
+            delta_ctm.y.y = diff.y.y / reset_steps;
+            delta_ctm.y.z = diff.y.z / reset_steps;
+            delta_ctm.y.w = diff.y.w / reset_steps;
+
+            delta_ctm.z.x = diff.z.x / reset_steps;
+            delta_ctm.z.y = diff.z.y / reset_steps;
+            delta_ctm.z.z = diff.z.z / reset_steps;
+            delta_ctm.z.w = diff.z.w / reset_steps;
+
+            delta_ctm.w.x = diff.w.x / reset_steps;
+            delta_ctm.w.y = diff.w.y / reset_steps;
+            delta_ctm.w.z = diff.w.z / reset_steps;
+            delta_ctm.w.w = diff.w.w / reset_steps;
+        }
+
+        // Register the idle function
+        glutIdleFunc(idleReset);
+    }
 }
 
 void display(void)
@@ -505,6 +562,9 @@ void keyboard(unsigned char key, int mousex, int mousey) {
         mat4 rotation = rotate_z(-rotation_angle);
         sun_position = mv_multiplication(rotation, sun_position);
         glutPostRedisplay();
+    }
+    else if (key == ' ') { // Reset platform
+        resetPlatform();
     }
 }
 
@@ -611,7 +671,6 @@ void cleanup() {
 
 int main(int argc, char **argv)
 {
-
     prompt_user();
     srand(time(NULL));
     glutInit(&argc, argv);
