@@ -37,6 +37,8 @@ vec4 final_point = {0.0f, 0.0f, 0.0f, 1.0f};
 mat4 scaling_matrix = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
 mat4 rotation_matrix = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
 mat4 prev_ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
+mat4 ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
+GLuint ctm_location;
 
 //cube and platform global variables
 float scale_cube = 0.25f;
@@ -56,10 +58,13 @@ vec2 *block_tex_coords = NULL;
 vec4 *sun_positions = NULL;
 vec2 *sun_tex_coords = NULL;
 int num_vertices_sun = 0; // Number of vertices for the sun
-vec4 sun_position = {0.0f, 3.5f, 0.0f, 1.0f};
+vec4 sun_position = {0.0f, 4.0f, 0.0f, 1.0f};
 
-mat4 ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
-GLuint ctm_location;
+//platform reset:
+bool resetting = false; // Animation state
+int reset_step = 0; // Current step in the reset process
+int reset_steps = 60; // Total number of steps for the reset
+mat4 delta_ctm; // Incremental change matrix
 
 void init(void)
 {
@@ -76,7 +81,7 @@ void init(void)
 
     FILE *fp = fopen("textures02.raw", "r");
     if(fp != NULL)
-	printf("[textureTemplate] Successfully open a texture file.\n");
+    printf("[textureTemplate] Successfully open a texture file.\n");
     fread(my_texels, tex_width * tex_height * 3, 1, fp);
     fclose(fp);
 
@@ -426,6 +431,69 @@ void display_sun() {
     sun_tex_coords = tex_coords + sun_start_index;
 }
 
+void idleReset() {
+    if (resetting && reset_step < reset_steps) {
+        // Incrementally reduce prev_ctm by delta_ctm to approach the identity matrix
+        prev_ctm = mm_subtraction(prev_ctm, delta_ctm);
+
+        // Update the current transformation matrix (ctm) with the modified prev_ctm
+        ctm = prev_ctm;
+
+        // Increment the step counter to track progress of the reset animation
+        ++reset_step;
+    } else {
+        // Reset process is complete
+        resetting = false;
+    }
+    glutPostRedisplay();
+}
+
+void resetPlatform() {
+    // Check if a reset is already in progress
+    if (!resetting) {
+        // Begin the reset process
+        resetting = true;
+
+        // Initialize the step counter
+        reset_step = 0;
+
+        mat4 current_ctm = ctm;
+
+        // Calculate the difference between the current_ctm and the identity matrix
+        mat4 identity = identity_matrix();
+        mat4 diff = mm_subtraction(current_ctm, identity);
+
+        // Compute the incremental change (delta_ctm) by dividing the difference by the total steps
+        for (int i = 0; i < 4; ++i) {
+            delta_ctm.x.x = diff.x.x / reset_steps;
+            delta_ctm.x.y = diff.x.y / reset_steps;
+            delta_ctm.x.z = diff.x.z / reset_steps;
+            delta_ctm.x.w = diff.x.w / reset_steps;
+
+            delta_ctm.y.x = diff.y.x / reset_steps;
+            delta_ctm.y.y = diff.y.y / reset_steps;
+            delta_ctm.y.z = diff.y.z / reset_steps;
+            delta_ctm.y.w = diff.y.w / reset_steps;
+
+            delta_ctm.z.x = diff.z.x / reset_steps;
+            delta_ctm.z.y = diff.z.y / reset_steps;
+            delta_ctm.z.z = diff.z.z / reset_steps;
+            delta_ctm.z.w = diff.z.w / reset_steps;
+
+            delta_ctm.w.x = diff.w.x / reset_steps;
+            delta_ctm.w.y = diff.w.y / reset_steps;
+            delta_ctm.w.z = diff.w.z / reset_steps;
+            delta_ctm.w.w = diff.w.w / reset_steps;
+        }
+
+        // Store the current_ctm snapshot for use in the reset animation
+        prev_ctm = current_ctm;
+
+        // Register the idle function to handle the reset animation
+        glutIdleFunc(idleReset);
+    }
+}
+
 void display(void)
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -505,6 +573,9 @@ void keyboard(unsigned char key, int mousex, int mousey) {
         mat4 rotation = rotate_z(-rotation_angle);
         sun_position = mv_multiplication(rotation, sun_position);
         glutPostRedisplay();
+    }
+    else if (key == ' ') { // Reset platform
+        resetPlatform();
     }
 }
 
@@ -611,7 +682,6 @@ void cleanup() {
 
 int main(int argc, char **argv)
 {
-
     prompt_user();
     srand(time(NULL));
     glutInit(&argc, argv);
