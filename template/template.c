@@ -66,6 +66,148 @@ int reset_step = 0; // Current step in the reset process
 int reset_steps = 60; // Total number of steps for the reset
 mat4 delta_ctm; // Incremental change matrix
 
+const int MAX_ROWS = 8; //temp until input is changed
+const int MAX_COLS = 8;// CHANGE LATER!
+
+// gonna make the maze using a 2d array of structs
+typedef struct {
+    bool top_wall;    // true if the wall exists
+    bool bottom_wall;
+    bool left_wall;  
+    bool right_wall; 
+} Cell;
+
+Cell maze[MAX_ROWS][MAX_COLS];
+
+// create the maze with bording walls + the entrance and exit and all the walls inside should be disabled for now
+void init_maze(int rows, int cols) {
+
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            // set border walls
+            maze[i][j].top_wall = (i == 0);              
+            maze[i][j].bottom_wall = (i == rows - 1);    
+            maze[i][j].left_wall = (j == 0);             
+            maze[i][j].right_wall = (j == cols - 1);      
+        }
+    }
+
+    // create entrance (remove top left, left wall)
+    maze[0][0].left_wall = false;
+
+    // create exit (remove bottom right, right wall)
+    maze[rows - 1][cols - 1].right_wall = false;
+}
+
+// helper function for picking rand values 
+int rand_between(int low, int high) {
+    if (low >= high) {
+        return low; // avoid invalid range
+    }
+    return low + rand() % (high - low);
+}
+
+void generate_maze(int row_start, int row_end, int col_start, int col_end) {
+    // if the chamber is too small, stop recursion here
+    if (row_end - row_start < 1 || col_end - col_start < 1) {
+        return;
+    }
+
+    // randomly pick a dividing row and column
+    int divide_row = rand_between(row_start + 1, row_end); // ensure its not on a boundary
+    int divide_col = rand_between(col_start + 1, col_end); 
+
+    // add walls vertically and horisontally from that point
+
+    //vert wall
+    for (int r = row_start; r <= row_end; r++) {
+        maze[r][divide_col - 1].right_wall = true; // east wall of left section
+        maze[r][divide_col].left_wall = true;     // west wall of right section
+    }
+
+    //horizontal wall
+    for (int c = col_start; c <= col_end; c++) {
+        maze[divide_row - 1][c].bottom_wall = true; // south wall of top section
+        maze[divide_row][c].top_wall = true;       // north wall of bottom section
+    }
+
+    // next, randomly open one wall in three of the four sections
+    bool opened[4] = {false, false, false, false}; // track which walls have been opened
+    int directions[] = {0, 1, 2, 3};              // directions: 0=N, 1=E, 2=S, 3=W
+    for (int i = 0; i < 3; i++) {
+        int dir_idx = rand_between(0, 4 - i); // pick random direction
+        int dir = directions[dir_idx];
+        directions[dir_idx] = directions[3 - i]; // remove this direction from pool so its not picked again
+
+        // open a wall in the chosen direction
+        if (dir == 0 && !opened[0]) { // north
+            int col = rand_between(col_start, divide_col); //pick seg to open
+            maze[divide_row - 1][col].bottom_wall = false; //remove the wall for the 2 bordering units
+            maze[divide_row][col].top_wall = false; //       ^^
+            opened[0] = true;
+        } else if (dir == 1 && !opened[1]) { // east
+            int row = rand_between(row_start, divide_row);
+            maze[row][divide_col].left_wall = false;
+            maze[row][divide_col - 1].right_wall = false;
+            opened[1] = true;
+        } else if (dir == 2 && !opened[2]) { // south
+            int col = rand_between(divide_col, col_end + 1);
+            maze[divide_row][col].top_wall = false;
+            maze[divide_row - 1][col].bottom_wall = false;
+            opened[2] = true;
+        } else if (dir == 3 && !opened[3]) { // west
+            int row = rand_between(divide_row, row_end + 1);
+            maze[row][divide_col - 1].right_wall = false;
+            maze[row][divide_col].left_wall = false;
+            opened[3] = true;
+        }
+    }
+
+    // recursive call for each chamber made from this division
+    generate_maze(row_start, divide_row - 1, col_start, divide_col - 1); // top left
+    generate_maze(row_start, divide_row - 1, divide_col, col_end);       // top right
+    generate_maze(divide_row, row_end, col_start, divide_col - 1);       // bottom left
+    generate_maze(divide_row, row_end, divide_col, col_end);             // bottom right
+    
+}
+
+
+
+// bang. maze time
+void make_maze(int rows, int cols) {
+    init_maze(rows, cols); 
+    generate_maze(0, rows - 1, 0, cols - 1); 
+}
+
+//function to print a text version of the maze so i know its correct
+void print_maze(int rows, int cols) {
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            printf("+");
+            printf(maze[i][j].top_wall ? "---" : "   ");
+        }
+        printf("+\n");
+
+        for (int j = 0; j < cols; j++) {
+            printf(maze[i][j].left_wall ? "|" : " "); 
+            printf("   ");
+        }
+
+        if (i == rows - 1 && cols > 0) {
+            printf(maze[rows - 1][cols - 1].right_wall ? "|" : " ");
+        } else {
+            printf("|");
+        }
+        printf("\n");
+    }
+    
+    for (int j = 0; j < cols; j++) {
+        printf("+");
+        printf(maze[rows - 1][j].bottom_wall ? "---" : "   ");
+    }
+    printf("+\n");
+}
+
 void init(void)
 {
     GLuint program = initShader("vshader.glsl", "fshader.glsl");
@@ -684,6 +826,12 @@ int main(int argc, char **argv)
 {
     prompt_user();
     srand(time(NULL));
+
+    //generate and print the maze
+    make_maze(MAX_ROWS, MAX_COLS);
+    printf("Generated Maze:\n");
+    print_maze(MAX_ROWS, MAX_COLS);
+
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
     glutInitWindowSize(512, 512);
