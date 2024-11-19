@@ -68,9 +68,6 @@ int reset_step = 0; // Current step in the reset process
 int reset_steps = 30; // Total number of steps for the reset
 mat4 delta_ctm; // Incremental change matrix
 
-const int MAX_ROWS = 8; //temp until input is changed
-const int MAX_COLS = 8;// CHANGE LATER!
-
 // gonna make the maze using a 2d array of structs
 typedef struct {
     bool top_wall;    // true if the wall exists
@@ -79,7 +76,35 @@ typedef struct {
     bool right_wall; 
 } Cell;
 
-Cell maze[MAX_ROWS][MAX_COLS];
+Cell **maze;
+
+//allocate mem for maze size
+void allocate_maze(int rows, int cols) {
+    maze = (Cell **)malloc(rows * sizeof(Cell *));
+    if (!maze) {
+        fprintf(stderr, "Failed to allocate memory for maze rows.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i < rows; i++) {
+        maze[i] = (Cell *)malloc(cols * sizeof(Cell));
+        if (!maze[i]) {
+            fprintf(stderr, "Failed to allocate memory for maze columns.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
+//cleanup the rows and then the pointers for each row (teardown)
+void free_maze(int rows) {
+    if (maze) {
+        for (int i = 0; i < rows; i++) {
+            if (maze[i]) free(maze[i]);
+        }
+        free(maze);
+        maze = NULL;
+    }
+}
 
 // create the maze with bording walls + the entrance and exit and all the walls inside should be disabled for now
 void init_maze(int rows, int cols) {
@@ -177,6 +202,7 @@ void generate_maze(int row_start, int row_end, int col_start, int col_end) {
 
 // bang. maze time
 void make_maze(int rows, int cols) {
+    allocate_maze(rows, cols);
     init_maze(rows, cols); 
     generate_maze(0, rows - 1, 0, cols - 1); 
 }
@@ -830,6 +856,7 @@ void cleanup() {
     if (tex_coords) free(tex_coords);
     if (block_positions) free(block_positions);
     if (block_tex_coords) free(block_tex_coords);
+    free_maze(maze_z_size);
 }
 
 int main(int argc, char **argv)
@@ -838,9 +865,9 @@ int main(int argc, char **argv)
     srand(time(NULL));
 
     //generate and print the maze
-    make_maze(MAX_ROWS, MAX_COLS);
+    make_maze(maze_z_size, maze_x_size);
     printf("Generated Maze:\n");
-    print_maze(MAX_ROWS, MAX_COLS);
+    print_maze(maze_z_size, maze_x_size);
 
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
