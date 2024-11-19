@@ -45,8 +45,10 @@ float scale_cube = 0.25f;
 int num_vertices_per_block = 36; 
 int num_blocks = 0; 
 int num_vertices = 0;
-int x_size = 5;
-int z_size = 5; 
+int x_size;
+int z_size; 
+int maze_x_size = 0;
+int maze_z_size = 0;
 
 //array global variable
 vec4 *positions = NULL;
@@ -63,7 +65,7 @@ vec4 sun_position = {0.0f, 4.0f, 0.0f, 1.0f};
 //platform reset:
 bool resetting = false; // Animation state
 int reset_step = 0; // Current step in the reset process
-int reset_steps = 60; // Total number of steps for the reset
+int reset_steps = 30; // Total number of steps for the reset
 mat4 delta_ctm; // Incremental change matrix
 
 const int MAX_ROWS = 8; //temp until input is changed
@@ -470,6 +472,11 @@ void generate_pyramid(int x_size, int z_size) {
             break;
         }
 
+        // Count blocks only for the first layer
+        if (layer == 0) {
+            printf("First layer - Blocks in X: %d, Blocks in Z: %d\n", blocks_per_layer_x, blocks_per_layer_z);
+        }
+
         float x_start = -((blocks_per_layer_x - 1) / 2.0f) * block_size_x;
         float z_start = -((blocks_per_layer_z - 1) / 2.0f) * block_size_z;
 
@@ -523,6 +530,7 @@ void generate_pyramid(int x_size, int z_size) {
         }
         y_translation -= block_size_x; // Move down for the next layer
     }
+
     num_vertices = index; // Total vertices used
 
     // Allocate positions and tex_coords to the exact size needed
@@ -573,7 +581,7 @@ void display_sun() {
     sun_tex_coords = tex_coords + sun_start_index;
 }
 
-void idleReset() {
+void idle() {
     if (resetting && reset_step < reset_steps) {
         // Incrementally reduce prev_ctm by delta_ctm to approach the identity matrix
         prev_ctm = mm_subtraction(prev_ctm, delta_ctm);
@@ -632,7 +640,7 @@ void resetPlatform() {
         prev_ctm = current_ctm;
 
         // Register the idle function to handle the reset animation
-        glutIdleFunc(idleReset);
+        glutIdleFunc(idle);
     }
 }
 
@@ -760,8 +768,8 @@ void motion(int x, int y) {
 
         // Update previous_point for the next motion event
         previous_point = final_point;
-        glutPostRedisplay();
     }
+    glutPostRedisplay();
 }
 
 void create_rotation() {
@@ -803,16 +811,18 @@ void create_rotation() {
 }
 
 void prompt_user() {
-    printf("Enter the platform width along the x-axis (positive integer): ");
-    if (scanf("%d", &x_size) != 1 || x_size <= 0) {
-        fprintf(stderr, "Invalid input. Platform width must be a positive integer.\n");
+    printf("Enter the maze width along the x-axis (positive integer): ");
+    if (scanf("%d", &maze_x_size) != 1 || maze_x_size <= 0) {
+        fprintf(stderr, "Invalid input. Maze width must be a positive integer.\n");
         exit(EXIT_FAILURE);
     }
-    printf("Enter the platform depth along the z-axis (positive integer): ");
-    if (scanf("%d", &z_size) != 1 || z_size <= 0) {
-        fprintf(stderr, "Invalid input. Platform depth must be a positive integer.\n");
+    printf("Enter the maze depth along the z-axis (positive integer): ");
+    if (scanf("%d", &maze_z_size) != 1 || maze_z_size <= 0) {
+        fprintf(stderr, "Invalid input. Maze depth must be a positive integer.\n");
         exit(EXIT_FAILURE);
     }
+    x_size = (maze_x_size * 3 + maze_x_size + 1) + 10;
+    z_size = (maze_z_size * 3 + maze_z_size + 1) + 10;
 }
 
 void cleanup() {
