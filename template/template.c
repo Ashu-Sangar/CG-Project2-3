@@ -134,6 +134,7 @@ int rand_between(int low, int high) {
     return low + rand() % (high - low);
 }
 
+//function to randomly generate the maze
 void generate_maze(int row_start, int row_end, int col_start, int col_end) {
     // if the chamber is too small, stop recursion here
     if (row_end - row_start < 1 || col_end - col_start < 1) {
@@ -198,8 +199,6 @@ void generate_maze(int row_start, int row_end, int col_start, int col_end) {
     
 }
 
-
-
 // bang. maze time
 void make_maze(int rows, int cols) {
     allocate_maze(rows, cols);
@@ -236,6 +235,279 @@ void print_maze(int rows, int cols) {
     printf("+\n");
 }
 
+//make the maze flooring
+void generate_maze_floor(int maze_x, int maze_z) {
+    //plank texture for floor
+    init_texture(1.0f, 0.75f);
+
+    // calculate floor dimensions
+    int floor_width = maze_x * 5 - (maze_x - 1);  // total blocks in x-axis
+    int floor_depth = maze_z * 5 - (maze_z - 1);  // total blocks in z-axis
+
+    // calculate total number of blocks and vertices
+    int floor_blocks = floor_width * floor_depth;
+    int floor_vertices = floor_blocks * num_vertices_per_block;
+
+    // allocate memory for positions and texture coords
+    vec4 *floor_positions = (vec4 *)malloc(sizeof(vec4) * floor_vertices);
+    vec2 *floor_tex_coords = (vec2 *)malloc(sizeof(vec2) * floor_vertices);
+    if (!floor_positions || !floor_tex_coords) {
+        fprintf(stderr, "Failed to allocate memory for maze floor.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int index = 0;
+    float y_translation = scale_cube * 0.5f;
+    float block_size = scale_cube * 0.5f;
+
+    // calculate offsets to center the floor
+    float x_offset = -(floor_width / 2.0f) * block_size;
+    float z_offset = -(floor_depth / 2.0f) * block_size;
+
+    // loop through the maze dimensions and create the floor
+    for (int i = 0; i < floor_depth; ++i) {
+        for (int j = 0; j < floor_width; ++j) {
+            // calculate translation for the current block
+            float x_translation = j * block_size + x_offset;
+            float z_translation = i * block_size + z_offset;
+
+            // then copy block positions and apply translation
+            for (int k = 0; k < num_vertices_per_block; ++k) {
+                floor_positions[index] = block_positions[k];
+                floor_positions[index].x += x_translation;
+                floor_positions[index].y += y_translation;
+                floor_positions[index].z += z_translation;
+                floor_tex_coords[index] = block_tex_coords[k];
+                index++;
+            }
+        }
+    }
+
+    // update global positions and tex_coords with the new floor data
+    num_vertices += floor_vertices;
+    positions = (vec4 *)realloc(positions, sizeof(vec4) * num_vertices);
+    tex_coords = (vec2 *)realloc(tex_coords, sizeof(vec2) * num_vertices);
+
+    if (!positions || !tex_coords) {
+        fprintf(stderr, "Failed to reallocate memory for maze floor vertices.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    memcpy(positions + (num_vertices - floor_vertices), floor_positions, sizeof(vec4) * floor_vertices);
+    memcpy(tex_coords + (num_vertices - floor_vertices), floor_tex_coords, sizeof(vec2) * floor_vertices);
+
+    free(floor_positions);
+    free(floor_tex_coords);
+}
+
+//make the verts or poles
+void generate_maze_poles(int maze_x, int maze_z) {
+    // cracked stone brick for poles
+    init_texture(0.5f, 0.5f);
+
+    // calculate amount of poles
+    int num_poles_x = maze_x + 1;
+    int num_poles_z = maze_z + 1;
+
+    // pole block size and base height
+    float block_size = scale_cube * 0.5f;
+    float base_height = scale_cube;
+
+    // calculate offsets to center the poles
+    float x_offset = -(maze_x * 5 - (maze_x - 1)) / 2.0f * block_size;
+    float z_offset = -(maze_z * 5 - (maze_z - 1)) / 2.0f * block_size;
+
+    // temporary lists to store pole vertices and texture coordinates
+    int max_pole_blocks = num_poles_x * num_poles_z * 5;  // max of 5 blocks per pole
+    int max_pole_vertices = max_pole_blocks * num_vertices_per_block;
+
+    vec4 *temp_positions = (vec4 *)malloc(sizeof(vec4) * max_pole_vertices);
+    vec2 *temp_tex_coords = (vec2 *)malloc(sizeof(vec2) * max_pole_vertices);
+
+    if (!temp_positions || !temp_tex_coords) {
+        fprintf(stderr, "Failed to allocate memory for maze poles.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int index = 0;
+
+    // loop through poles along the grid
+    for (int i = 0; i < num_poles_z; ++i) {
+        for (int j = 0; j < num_poles_x; ++j) {
+            // find base position of pole
+            float x_pole = j * (5 * block_size - block_size) + x_offset;
+            float z_pole = i * (5 * block_size - block_size) + z_offset;
+
+            // randomize pole height between 3 and 5 blocks
+            int pole_height = rand_between(3, 6);  // 6 is exclusive here
+
+            // stack blocks vertically to build the pole
+            for (int h = 0; h < pole_height; ++h) {
+                // add a block at the current height
+                for (int k = 0; k < num_vertices_per_block; ++k) {
+                    temp_positions[index] = block_positions[k];
+                    temp_positions[index].x += x_pole;
+                    temp_positions[index].y += base_height + h * block_size;
+                    temp_positions[index].z += z_pole;
+
+                    temp_tex_coords[index] = block_tex_coords[k];
+                    index++;
+                }
+            }
+        }
+    }
+
+    // update global positions and tex_coords with the new pole data
+    int pole_vertices = index;  // total vertices used for poles
+
+    positions = (vec4 *)realloc(positions, sizeof(vec4) * (num_vertices + pole_vertices));
+    tex_coords = (vec2 *)realloc(tex_coords, sizeof(vec2) * (num_vertices + pole_vertices));
+
+    if (!positions || !tex_coords) {
+        fprintf(stderr, "Failed to reallocate memory for maze pole vertices.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    memcpy(positions + num_vertices, temp_positions, sizeof(vec4) * pole_vertices);
+    memcpy(tex_coords + num_vertices, temp_tex_coords, sizeof(vec2) * pole_vertices);
+
+    num_vertices += pole_vertices;  // update the total vertex count
+
+    free(temp_positions);
+    free(temp_tex_coords);
+}
+
+//make the walls according to the random maze generation
+void generate_maze_walls(int maze_x, int maze_z) {
+    // brick texture
+    init_texture(1.0f, 0.50f);
+
+    // block size and base height
+    float block_size = scale_cube * 0.5f;
+    float base_height = scale_cube;
+
+    //adjust offsets to center the walls
+    //NOTE:
+    //using the expected float z_offset = -(maze_z * 5 - (maze_z - 1)) / 2.0f * block_size; didnt work 
+    //but was only 2 blocks off in the x and z positions, so this is currently a crude adjustment to center the walls correctly but hey it works
+    float x_offset = -((maze_x * 5 - (maze_x - 1)) / 2.0f) * block_size + block_size * 2.0f;
+    float z_offset = -((maze_z * 5 - (maze_z - 1)) / 2.0f) * block_size + block_size * 2.0f;
+
+    // temp arrays for wall vertices and text coords
+    int max_wall_blocks = (maze_x * maze_z * 4) * 15;  // walls are made of 3 segments. segments have max height of 5
+    int max_wall_vertices = max_wall_blocks * num_vertices_per_block;
+
+    vec4 *temp_positions = (vec4 *)malloc(sizeof(vec4) * max_wall_vertices);
+    vec2 *temp_tex_coords = (vec2 *)malloc(sizeof(vec2) * max_wall_vertices);
+
+    if (!temp_positions || !temp_tex_coords) {
+        fprintf(stderr, "Failed to allocate memory for maze walls.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int index = 0;
+
+    // loop through maze grid
+    for (int i = 0; i < maze_z; ++i) {
+        for (int j = 0; j < maze_x; ++j) {
+            // find base position of current cell
+            float x_cell = j * (5 * block_size - block_size) + x_offset;
+            float z_cell = i * (5 * block_size - block_size) + z_offset;
+
+            // add walls based on maze structure
+            if (maze[i][j].top_wall) {
+                for (int segment = 0; segment < 3; ++segment) { //3 segments per wall
+                    int wall_height = rand_between(3, 6); // need random height for each segment
+                    for (int h = 0; h < wall_height; ++h) {
+                        for (int k = 0; k < num_vertices_per_block; ++k) {
+                            temp_positions[index] = block_positions[k];
+                            temp_positions[index].x += x_cell + (segment - 1) * block_size;  // offset for segment
+                            temp_positions[index].y += base_height + h * block_size;
+                            temp_positions[index].z += z_cell - 2.0f * block_size;  // corrected offset for top wall
+                            temp_tex_coords[index] = block_tex_coords[k];
+                            index++;
+                        }
+                    }
+                }
+            }
+
+            if (maze[i][j].bottom_wall) {
+                for (int segment = 0; segment < 3; ++segment) {
+                    int wall_height = rand_between(3, 6);
+                    for (int h = 0; h < wall_height; ++h) {
+                        for (int k = 0; k < num_vertices_per_block; ++k) {
+                            temp_positions[index] = block_positions[k];
+                            temp_positions[index].x += x_cell + (segment - 1) * block_size;
+                            temp_positions[index].y += base_height + h * block_size;
+                            temp_positions[index].z += z_cell + 2.0f * block_size;  // corrected offset for bottom wall
+                            temp_tex_coords[index] = block_tex_coords[k];
+                            index++;
+                        }
+                    }
+                }
+            }
+
+            if (maze[i][j].left_wall) {
+                for (int segment = 0; segment < 3; ++segment) {
+                    int wall_height = rand_between(3, 6);
+                    for (int h = 0; h < wall_height; ++h) {
+                        for (int k = 0; k < num_vertices_per_block; ++k) {
+                            temp_positions[index] = block_positions[k];
+                            temp_positions[index].x += x_cell - 2.0f * block_size;  //...for left wall
+                            temp_positions[index].y += base_height + h * block_size;
+                            temp_positions[index].z += z_cell + (segment - 1) * block_size;
+                            temp_tex_coords[index] = block_tex_coords[k];
+                            index++;
+                        }
+                    }
+                }
+            }
+
+            if (maze[i][j].right_wall) {
+                for (int segment = 0; segment < 3; ++segment) {
+                    int wall_height = rand_between(3, 6);
+                    for (int h = 0; h < wall_height; ++h) {
+                        for (int k = 0; k < num_vertices_per_block; ++k) {
+                            temp_positions[index] = block_positions[k];
+                            temp_positions[index].x += x_cell + 2.0f * block_size;  //...for right wall
+                            temp_positions[index].y += base_height + h * block_size;
+                            temp_positions[index].z += z_cell + (segment - 1) * block_size;
+                            temp_tex_coords[index] = block_tex_coords[k];
+                            index++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // update global positions and tex_coords as usual
+    int wall_vertices = index; 
+
+    positions = (vec4 *)realloc(positions, sizeof(vec4) * (num_vertices + wall_vertices));
+    tex_coords = (vec2 *)realloc(tex_coords, sizeof(vec2) * (num_vertices + wall_vertices));
+
+    if (!positions || !tex_coords) {
+        fprintf(stderr, "Failed to reallocate memory for maze wall vertices.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    memcpy(positions + num_vertices, temp_positions, sizeof(vec4) * wall_vertices);
+    memcpy(tex_coords + num_vertices, temp_tex_coords, sizeof(vec2) * wall_vertices);
+
+    num_vertices += wall_vertices;  // update total vert count
+
+    free(temp_positions);
+    free(temp_tex_coords);
+}
+
+//function to bring all maze parts together and display them
+void display_maze(int maze_x, int maze_z) {
+    generate_maze_floor(maze_x, maze_z);
+    generate_maze_poles(maze_x, maze_z);
+    generate_maze_walls(maze_x, maze_z);
+}
+
 void init(void)
 {
     GLuint program = initShader("vshader.glsl", "fshader.glsl");
@@ -243,6 +515,7 @@ void init(void)
 
     init_grassblock();
     generate_pyramid(x_size, z_size);
+    display_maze(maze_x_size, maze_z_size);
     display_sun();
 
     int tex_width = 64;
