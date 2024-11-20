@@ -108,7 +108,6 @@ void free_maze(int rows) {
 
 // create the maze with bording walls + the entrance and exit and all the walls inside should be disabled for now
 void init_maze(int rows, int cols) {
-
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
             // set border walls
@@ -119,12 +118,13 @@ void init_maze(int rows, int cols) {
         }
     }
 
-    // create entrance (remove top left, left wall)
-    maze[0][0].left_wall = false;
+    // create entrance (remove bottom left, bottom wall)
+    maze[rows - 1][0].bottom_wall = false;
 
-    // create exit (remove bottom right, right wall)
-    maze[rows - 1][cols - 1].right_wall = false;
+    // create exit (remove top right, top wall)
+    maze[0][cols - 1].top_wall = false;
 }
+
 
 // helper function for picking rand values 
 int rand_between(int low, int high) {
@@ -261,8 +261,8 @@ void generate_maze_floor(int maze_x, int maze_z) {
     float block_size = scale_cube * 0.5f;
 
     // calculate offsets to center the floor
-    float x_offset = -(floor_width / 2.0f) * block_size;
-    float z_offset = -(floor_depth / 2.0f) * block_size;
+    float x_offset = -(floor_width / 2.0f) * block_size + block_size / 2.0f;
+    float z_offset = -(floor_depth / 2.0f) * block_size + block_size / 2.0f;
 
     // loop through the maze dimensions and create the floor
     for (int i = 0; i < floor_depth; ++i) {
@@ -314,8 +314,8 @@ void generate_maze_poles(int maze_x, int maze_z) {
     float base_height = scale_cube;
 
     // calculate offsets to center the poles
-    float x_offset = -(maze_x * 5 - (maze_x - 1)) / 2.0f * block_size;
-    float z_offset = -(maze_z * 5 - (maze_z - 1)) / 2.0f * block_size;
+    float x_offset = -(maze_x * 5 - (maze_x - 1)) / 2.0f * block_size + block_size / 2.0f;
+    float z_offset = -(maze_z * 5 - (maze_z - 1)) / 2.0f * block_size + block_size / 2.0f;
 
     // temporary lists to store pole vertices and texture coordinates
     int max_pole_blocks = num_poles_x * num_poles_z * 5;  // max of 5 blocks per pole
@@ -390,8 +390,9 @@ void generate_maze_walls(int maze_x, int maze_z) {
     //NOTE:
     //using the expected float z_offset = -(maze_z * 5 - (maze_z - 1)) / 2.0f * block_size; didnt work 
     //but was only 2 blocks off in the x and z positions, so this is currently a crude adjustment to center the walls correctly but hey it works
-    float x_offset = -((maze_x * 5 - (maze_x - 1)) / 2.0f) * block_size + block_size * 2.0f;
-    float z_offset = -((maze_z * 5 - (maze_z - 1)) / 2.0f) * block_size + block_size * 2.0f;
+    float x_offset = -((maze_x * 5 - (maze_x - 1)) / 2.0f) * block_size + 2.5 * block_size;
+    float z_offset = -((maze_z * 5 - (maze_z - 1)) / 2.0f) * block_size + 2.5 * block_size;
+
 
     // temp arrays for wall vertices and text coords
     int max_wall_blocks = (maze_x * maze_z * 4) * 15;  // walls are made of 3 segments. segments have max height of 5
