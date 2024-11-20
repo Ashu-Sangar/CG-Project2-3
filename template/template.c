@@ -387,9 +387,6 @@ void generate_maze_walls(int maze_x, int maze_z) {
     float base_height = scale_cube;
 
     //adjust offsets to center the walls
-    //NOTE:
-    //using the expected float z_offset = -(maze_z * 5 - (maze_z - 1)) / 2.0f * block_size; didnt work 
-    //but was only 2 blocks off in the x and z positions, so this is currently a crude adjustment to center the walls correctly but hey it works
     float x_offset = -((maze_x * 5 - (maze_x - 1)) / 2.0f) * block_size + 2.5 * block_size;
     float z_offset = -((maze_z * 5 - (maze_z - 1)) / 2.0f) * block_size + 2.5 * block_size;
 
