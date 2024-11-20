@@ -622,3 +622,28 @@ mat4 rotate_y(float theta) {
 
     return rotation_matrix;
 }
+
+mat4 look_at(vec4 eye, vec4 at, vec4 up){
+    vec4 z_prime = normalize(vv_subtraction(eye, at));
+    vec4 x_prime = normalize(cross_product(up, z_prime));
+    vec4 y_prime = normalize(cross_product(z_prime, x_prime));
+    mat4 r = {{x_prime.x, y_prime.x, z_prime.x, 0}, {x_prime.y, y_prime.y, z_prime.y, 0}, {x_prime.z, y_prime.z, z_prime.z, 0}, {0, 0, 0, 1}};
+    mat4 t = translate(-eye.x, -eye.y, -eye.z);
+    mat4 model_view_matrix = mm_multiplication(r, t);
+    return model_view_matrix;
+}
+
+// Orthographic projection
+mat4 orhto(float left, float right, float bottom, float top, float near, float far){
+    mat4 ortho_projection_matrix = {{2 / (right - left), 0, 0, 0}, {0, 2 / (top - bottom), 0, 0}, {0, 0, 2 / (near - far), 0}, {-((right + left) / (right - left)), -((top + bottom) / (top - bottom)), -((near + far) / (near - far)), 1}};
+    return ortho_projection_matrix;
+}
+
+// Perspective projection
+mat4 frustum(float left, float right, float bottom, float top, float near, float far){
+    mat4 perspective_projection_matrix = {{(-2 * near) / (right - left), 0, 0, 0}, 
+    {0, (-2 * near) / (top - bottom), 0, 0}, 
+    {(left + right) / (right - left), (bottom + top) / (top - bottom), (near + far) / (far - near), -1}, 
+    {0, 0, - (2 * near * far) / (far - near), 0}};
+    return perspective_projection_matrix;
+}

@@ -40,6 +40,12 @@ mat4 prev_ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
 mat4 ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
 GLuint ctm_location;
 
+// Model view and projection variables
+GLuint model_view_location;
+GLuint projection_location;
+mat4 model_view = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
+mat4 projection = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
+
 //cube and platform global variables
 float scale_cube = 0.25f;
 int num_vertices_per_block = 36; 
@@ -566,6 +572,8 @@ void init(void)
     glUniform1i(texture_location, 0);
 
     ctm_location = glGetUniformLocation(program, "ctm");
+    model_view_location = glGetUniformLocation(program, "model_view");
+    projection_location = glGetUniformLocation(program, "projection");
 
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.0, 0.0, 0.0, 1.0);
@@ -964,6 +972,12 @@ void display(void)
 
     // Send the sun's ctm to the shader
     glUniformMatrix4fv(ctm_location, 1, GL_FALSE, (GLfloat *)&sun_final_ctm);
+
+    // Send the updated model_view matrix to the shader
+    glUniformMatrix4fv(model_view_location, 1, GL_FALSE, (GLfloat *) &model_view);
+
+    // Send the updated projection matrix to the shader
+    glUniformMatrix4fv(projection_location, 1, GL_FALSE, (GLfloat *) &projection);
 
     // Draw only the sun's vertices
     glDrawArrays(GL_TRIANGLES, num_vertices - num_vertices_sun, num_vertices_sun);

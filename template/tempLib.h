@@ -75,4 +75,12 @@ float degrees_to_radians(float degrees);
 mat4 rotate_y(float theta);
 mat4 rotate_x(float theta);
 mat4 rotate_z(float theta);
+
+//model_view
+mat4 look_at(vec4 eye, vec4 at, vec4 up);
+
+//projection functions
+mat4 orhto(float left, float right, float bottom, float top, float near, float far);
+mat4 frustum(float left, float right, float bottom, float top, float near, float far);
+
 #endif
