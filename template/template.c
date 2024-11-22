@@ -30,6 +30,7 @@ void slide_left();
 void slide_right();
 void turn_left();
 void turn_right();
+void print_location();
 
 // mouse, rotation, and scaling variables
 float scale_factor = 1.0f; 
@@ -988,7 +989,6 @@ void display(void)
     //glDrawArrays(GL_TRIANGLES, 0, num_vertices - num_vertices_sun);
 
     // Draw the sun
-    // rip
 
     // Apply any global scaling if necessary
     //mat4 sun_final_ctm = mm_multiplication(final_ctm, sun_ctm);
@@ -1069,28 +1069,27 @@ void keyboard(unsigned char key, int mousex, int mousey) {
         sun_position = mv_multiplication(rotation, sun_position);
         glutPostRedisplay();
     }
-    else if (key == 'j') { // Rotate sun around Z-axis (negative angle)
-        model_view = look_at((vec4) {0, 0, maze_z_size * 3, 1}, (vec4) {0, 0, maze_z_size * 3 - 1, 1}, (vec4) {0, 1, 0, 0});
-        //projection = ortho(-(1.75 * maze_z_size), (1.75 * maze_x_size), -(1.75 * maze_z_size), (1.75 * maze_z_size), -1, -100);
-        projection = frustum(-1, 1, -1, 1, -1, -100);
+    else if (key == 'j') { // testing button
+        //model_view = look_at((vec4) {0, 0, maze_z_size * 3, 1}, (vec4) {0, 0, maze_z_size * 3 - 1, 1}, (vec4) {0, 1, 0, 0});
+        model_view = look_at((vec4) {0, 0, maze_x_size * 5 - (maze_x_size - 1), 1}, (vec4) {0, 0, maze_z_size * 3 - 1, 1}, (vec4) {0, 1, 0, 0});
+        projection = ortho(-maze_x_size, maze_x_size, -maze_x_size, maze_x_size, -1, -100);
+        //projection = frustum(-1, 1, -1, 1, -1, -100);
         //projection = ortho(-6, 6, -6, 6, -1, -100);
+        
         glutPostRedisplay();
     }
-    else if (key == 'f') { // Rotate sun around Z-axis (negative angle)
-        eye_x = -maze_z_size + 1;
-        at_x = -maze_z_size + 1;
-        eye_y, at_y = 2;
-        eye_z = 6;
-        at_z = 5;
+    else if (key == 'f') { // Go to start of maze
+        eye_x = -maze_x_size + 1;
+        at_x = -maze_x_size + 1;
+        //eye_y, at_y = 2;
+        eye_z = maze_z_size + 1;
+        at_z = maze_z_size;
         model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
         glutPostRedisplay();
+        print_location();
     }
-    else if (key == 'r') { // Rotate sun around Z-axis (negative angle)
+    else if (key == 'r') {
         turn_right();
-    }
-    else if (key == 'g') { // Rotate sun around Z-axis (negative angle)
-        model_view = look_at((vec4) {-maze_z_size + 1, 2, 4, 1}, (vec4) {-maze_z_size + 1, 2, 3, 1}, (vec4) {0, 1, 0, 0});
-        glutPostRedisplay();
     }
     else if (key == ' ') { // Reset platform
         resetPlatform();
@@ -1109,6 +1108,13 @@ void mouse(int button, int state, int x, int y) {
             dragging = 0;
         }
     }
+}
+
+void print_location(){
+    printf("\nX: %f\n", eye_x);
+    printf("Y: 2\n");
+    printf("Z: %f\n", eye_z);
+    printf("\n--------------------------\n");
 }
 
 vec4 map_coords(int x, int y){
@@ -1145,43 +1151,47 @@ void special(int key, int x, int y) {
         //step_counter = 0;
         //is_animating = 1;
         forward();
+        print_location();
     }
     else if(key == GLUT_KEY_DOWN){
         backward();
+        print_location();
     }
     else if(key == GLUT_KEY_LEFT){
         slide_left();
+        print_location();
     }
     else if(key == GLUT_KEY_RIGHT){
         slide_right();
+        print_location();
     }
 
 }
 
 void forward(){
-    eye_z--;
-    at_z--;
+    eye_z -= 2;
+    at_z -= 2;
     model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
     glutPostRedisplay();
 }
 
 void backward(){
-    eye_z++;
-    at_z++;
+    eye_z += 2;
+    at_z += 2;
     model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
     glutPostRedisplay();
 }
 
 void slide_left(){
-    eye_x--;
-    at_x--;
+    eye_x -= 2;
+    at_x -= 2;
     model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
     glutPostRedisplay();
 }
 
 void slide_right(){
-    eye_x++;
-    at_x++;
+    eye_x += 2;
+    at_x += 2;
     model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
     glutPostRedisplay();
 }
@@ -1194,7 +1204,7 @@ void turn_left(){
 
 void turn_right(){
 
-    mat4 rot = rotate_y(-90.0);
+    mat4 rot = rotate_y((-90.0 * 180.0) / M_PI);
     vec4 new_at_point = mv_multiplication(rot, (vec4) {at_x, 2, at_z, 1});
     //mat4 tran = translate(0, 0, 0);
     //vec4 new_eye_point = mv_multiplication(tran, (vec4) {eye_x, 2, eye_z, 1});
