@@ -80,7 +80,7 @@ mat4 rotate_z(float theta);
 mat4 look_at(vec4 eye, vec4 at, vec4 up);
 
 //projection functions
-mat4 orhto(float left, float right, float bottom, float top, float near, float far);
+mat4 ortho(float left, float right, float bottom, float top, float near, float far);
 mat4 frustum(float left, float right, float bottom, float top, float near, float far);
 
 #endif

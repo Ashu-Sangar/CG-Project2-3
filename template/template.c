@@ -24,6 +24,12 @@ void init_grassblock();
 void init_texture(float x, float y);
 void generate_pyramid(int x_size, int z_size);
 void display_sun();
+void forward();
+void backward();
+void slide_left();
+void slide_right();
+void turn_left();
+void turn_right();
 
 // mouse, rotation, and scaling variables
 float scale_factor = 1.0f; 
@@ -45,9 +51,15 @@ GLuint model_view_location;
 GLuint projection_location;
 mat4 model_view = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
 mat4 projection = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
+float eye_x = 0.0;
+float eye_y = 0.0;
+float eye_z = 0.0;
+float at_x = 0.0;
+float at_y = 0.0;
+float at_z = 0.0;
 
 //cube and platform global variables
-float scale_cube = 0.25f;
+float scale_cube = 1.00f;
 int num_vertices_per_block = 36; 
 int num_blocks = 0; 
 int num_vertices = 0;
@@ -66,7 +78,7 @@ vec2 *block_tex_coords = NULL;
 vec4 *sun_positions = NULL;
 vec2 *sun_tex_coords = NULL;
 int num_vertices_sun = 0; // Number of vertices for the sun
-vec4 sun_position = {0.0f, 4.0f, 0.0f, 1.0f};
+vec4 sun_position = {0.0f, 16.0f, 0.0f, 1.0f};
 
 //platform reset:
 bool resetting = false; // Animation state
@@ -571,6 +583,9 @@ void init(void)
     GLuint texture_location = glGetUniformLocation(program, "texture");
     glUniform1i(texture_location, 0);
 
+    model_view = look_at((vec4) {0, 0, maze_z_size * 3, 1}, (vec4) {0, 0, maze_z_size * 3 - 1, 1}, (vec4) {0, 1, 0, 0});
+    projection = frustum(-1, 1, -1, 1, -1, -100);
+
     ctm_location = glGetUniformLocation(program, "ctm");
     model_view_location = glGetUniformLocation(program, "model_view");
     projection_location = glGetUniformLocation(program, "projection");
@@ -884,6 +899,16 @@ void display_sun() {
     num_vertices_sun = num_vertices_per_block;
     sun_positions = positions + sun_start_index;
     sun_tex_coords = tex_coords + sun_start_index;
+
+    // Since we will always have sun's location, no need to do the thing with sending the ctm through the pipeline twice.
+    // When we rotate the sun, just multiply each vertex by rotation matrix
+    float sun_scale = 3.0f; // The size of the sun
+    mat4 sun_scaling = scale(sun_scale, sun_scale, sun_scale);
+    mat4 sun_translation = translate(sun_position.x, sun_position.y, sun_position.z);
+    mat4 sun_ctm = mm_multiplication(sun_translation, sun_scaling);
+    for(int i = sun_start_index; i < num_vertices; i++){
+        positions[i] = mv_multiplication(sun_ctm, positions[i]);
+    }
 }
 
 void idle() {
@@ -954,33 +979,41 @@ void display(void)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Draw the scene
-    mat4 scaling_matrix = scale(scale_factor, scale_factor, scale_factor);
-    mat4 final_ctm = mm_multiplication(scaling_matrix, ctm);
-    glUniformMatrix4fv(ctm_location, 1, GL_FALSE, (GLfloat *)&final_ctm);
+    //mat4 scaling_matrix = scale(scale_factor, scale_factor, scale_factor);
+    //mat4 final_ctm = mm_multiplication(scaling_matrix, ctm);
+    glUniformMatrix4fv(ctm_location, 1, GL_FALSE, (GLfloat *)&ctm);
+    //print_matrix(ctm);
 
     // Draw all vertices except the sun's vertices
-    glDrawArrays(GL_TRIANGLES, 0, num_vertices - num_vertices_sun);
+    //glDrawArrays(GL_TRIANGLES, 0, num_vertices - num_vertices_sun);
 
     // Draw the sun
-    float sun_scale = 3.0f; // The size of the sun
-    mat4 sun_scaling = scale(sun_scale, sun_scale, sun_scale);
-    mat4 sun_translation = translate(sun_position.x, sun_position.y, sun_position.z);
-    mat4 sun_ctm = mm_multiplication(sun_translation, sun_scaling);
+    // rip
 
     // Apply any global scaling if necessary
-    mat4 sun_final_ctm = mm_multiplication(final_ctm, sun_ctm);
+    //mat4 sun_final_ctm = mm_multiplication(final_ctm, sun_ctm);
 
     // Send the sun's ctm to the shader
-    glUniformMatrix4fv(ctm_location, 1, GL_FALSE, (GLfloat *)&sun_final_ctm);
+    //glUniformMatrix4fv(ctm_location, 1, GL_FALSE, (GLfloat *)&sun_final_ctm);
 
     // Send the updated model_view matrix to the shader
+    
+    //model_view = look_at((vec4) {0, 0, 5.5, 1}, (vec4) {0, 0, -1, 1}, (vec4) {0, 1, 0, 0});
+
+    //model_view = look_at((vec4) {0, 0, maze_z_size * 3, 1}, (vec4) {0, 0, maze_z_size * 3 - 1, 1}, (vec4) {0, 1, 0, 0});
+    //projection = ortho(-(1.75 * maze_z_size), (1.75 * maze_x_size), -(1.75 * maze_z_size), (1.75 * maze_z_size), -1, -100);
+        
+
     glUniformMatrix4fv(model_view_location, 1, GL_FALSE, (GLfloat *) &model_view);
 
     // Send the updated projection matrix to the shader
+    //projection = frustum(-10, 10, -5, 5, -1, -10);
     glUniformMatrix4fv(projection_location, 1, GL_FALSE, (GLfloat *) &projection);
 
     // Draw only the sun's vertices
-    glDrawArrays(GL_TRIANGLES, num_vertices - num_vertices_sun, num_vertices_sun);
+    //glDrawArrays(GL_TRIANGLES, num_vertices - num_vertices_sun, num_vertices_sun);
+
+    glDrawArrays(GL_TRIANGLES, 0, num_vertices);
 
     glutSwapBuffers();
 }
@@ -990,6 +1023,7 @@ void keyboard(unsigned char key, int mousex, int mousey) {
     if (key == 'i') { // Zoom In
         float zoom_increment = 1.15f;
         scale_factor *= zoom_increment;
+
         glutPostRedisplay();
     }
     else if (key == 'o') { // Zoom Out
@@ -1033,6 +1067,29 @@ void keyboard(unsigned char key, int mousex, int mousey) {
     else if (key == '6') { // Rotate sun around Z-axis (negative angle)
         mat4 rotation = rotate_z(-rotation_angle);
         sun_position = mv_multiplication(rotation, sun_position);
+        glutPostRedisplay();
+    }
+    else if (key == 'j') { // Rotate sun around Z-axis (negative angle)
+        model_view = look_at((vec4) {0, 0, maze_z_size * 3, 1}, (vec4) {0, 0, maze_z_size * 3 - 1, 1}, (vec4) {0, 1, 0, 0});
+        //projection = ortho(-(1.75 * maze_z_size), (1.75 * maze_x_size), -(1.75 * maze_z_size), (1.75 * maze_z_size), -1, -100);
+        projection = frustum(-1, 1, -1, 1, -1, -100);
+        //projection = ortho(-6, 6, -6, 6, -1, -100);
+        glutPostRedisplay();
+    }
+    else if (key == 'f') { // Rotate sun around Z-axis (negative angle)
+        eye_x = -maze_z_size + 1;
+        at_x = -maze_z_size + 1;
+        eye_y, at_y = 2;
+        eye_z = 6;
+        at_z = 5;
+        model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+        glutPostRedisplay();
+    }
+    else if (key == 'r') { // Rotate sun around Z-axis (negative angle)
+        turn_right();
+    }
+    else if (key == 'g') { // Rotate sun around Z-axis (negative angle)
+        model_view = look_at((vec4) {-maze_z_size + 1, 2, 4, 1}, (vec4) {-maze_z_size + 1, 2, 3, 1}, (vec4) {0, 1, 0, 0});
         glutPostRedisplay();
     }
     else if (key == ' ') { // Reset platform
@@ -1080,6 +1137,74 @@ void motion(int x, int y) {
         // Update previous_point for the next motion event
         previous_point = final_point;
     }
+    glutPostRedisplay();
+}
+
+void special(int key, int x, int y) {
+    if(key == GLUT_KEY_UP){
+        //step_counter = 0;
+        //is_animating = 1;
+        forward();
+    }
+    else if(key == GLUT_KEY_DOWN){
+        backward();
+    }
+    else if(key == GLUT_KEY_LEFT){
+        slide_left();
+    }
+    else if(key == GLUT_KEY_RIGHT){
+        slide_right();
+    }
+
+}
+
+void forward(){
+    eye_z--;
+    at_z--;
+    model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+    glutPostRedisplay();
+}
+
+void backward(){
+    eye_z++;
+    at_z++;
+    model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+    glutPostRedisplay();
+}
+
+void slide_left(){
+    eye_x--;
+    at_x--;
+    model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+    glutPostRedisplay();
+}
+
+void slide_right(){
+    eye_x++;
+    at_x++;
+    model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+    glutPostRedisplay();
+}
+
+void turn_left(){
+
+    model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+    glutPostRedisplay();
+}
+
+void turn_right(){
+
+    mat4 rot = rotate_y(-90.0);
+    vec4 new_at_point = mv_multiplication(rot, (vec4) {at_x, 2, at_z, 1});
+    //mat4 tran = translate(0, 0, 0);
+    //vec4 new_eye_point = mv_multiplication(tran, (vec4) {eye_x, 2, eye_z, 1});
+    //mat4 m = look_at((vec4) {0, 0, 0, 1}, new_at_point, (vec4) {0, 1, 0, 0});
+    mat4 m1 = look_at((vec4) {0, 0, 0, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+    mat4 m2 = look_at((vec4) {0, 0, 0, 1}, new_at_point, (vec4) {0, 1, 0, 0});
+    mat4 m3 = mm_multiplication(m2, m1);
+    
+    model_view = m3;
+    //model_view = mm_multiplication(look_at((vec4) {eye_x, 2, eye_z, 1}, new_at_point, (vec4) {0, 1, 0, 0}), m3);
     glutPostRedisplay();
 }
 
@@ -1167,6 +1292,7 @@ int main(int argc, char **argv)
     glutKeyboardFunc(keyboard);
     glutMouseFunc(mouse);
     glutMotionFunc(motion);
+    glutSpecialFunc(special);
     glutMainLoop();
 
     cleanup();

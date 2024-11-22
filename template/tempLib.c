@@ -634,7 +634,7 @@ mat4 look_at(vec4 eye, vec4 at, vec4 up){
 }
 
 // Orthographic projection
-mat4 orhto(float left, float right, float bottom, float top, float near, float far){
+mat4 ortho(float left, float right, float bottom, float top, float near, float far){
     mat4 ortho_projection_matrix = {{2 / (right - left), 0, 0, 0}, {0, 2 / (top - bottom), 0, 0}, {0, 0, 2 / (near - far), 0}, {-((right + left) / (right - left)), -((top + bottom) / (top - bottom)), -((near + far) / (near - far)), 1}};
     return ortho_projection_matrix;
 }
