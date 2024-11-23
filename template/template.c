@@ -31,6 +31,7 @@ void slide_right();
 void turn_left();
 void turn_right();
 void print_location();
+bool can_move_inside_maze(int row, int col, int direction);
 
 // mouse, rotation, and scaling variables
 float scale_factor = 1.0f; 
@@ -93,6 +94,9 @@ int player_col = -1;
 int direction = 0; // 0 = North, 1 = East, 2 = South, 3 = West
 int exit_direction = -1; // -1 for no direction, but otherwise follows same rules as avove
 bool inside_maze = false; // is the player inside the maze? 
+
+//left hand rule
+int maze_solving_in_progress = 0;
 
 // gonna make the maze using a 2d array of structs
 typedef struct {
@@ -982,6 +986,43 @@ void resetPlatform() {
     }
 }
 
+void solve_maze_lh() {
+    // While the player is not at the maze exit
+    while (!(player_row == 0 && player_col == maze_x_size - 1)) {
+        // Try to turn left and move
+        turn_left(); // Turn left
+        if (can_move_inside_maze(player_row, player_col, direction)) {
+            forward(); // Move forward after turning left
+        } else {
+            // Turn back to the original direction
+            turn_right(); // Undo the left turn
+            if (can_move_inside_maze(player_row, player_col, direction)) {
+                forward(); // Move forward
+            } else {
+                // Try to turn right and move
+                turn_right(); // Turn right
+                if (can_move_inside_maze(player_row, player_col, direction)) {
+                    forward(); // Move forward after turning right
+                } else {
+                    // Backtrack (turn around)
+                    turn_right(); // Turn right again (180 degrees from original)
+                    forward();    // Move backward
+                }
+            }
+        }
+        // Update the display
+        glutPostRedisplay();
+    }
+
+    // At the end of the maze, turn left one more time
+    turn_left();
+
+    // Maze is solved
+    printf("Maze solved!\n");
+    glutPostRedisplay(); 
+} 
+
+
 void display(void)
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1112,7 +1153,10 @@ void keyboard(unsigned char key, int mousex, int mousey) {
     else if (key == ' ') { // Reset platform
         resetPlatform();
     }
-}
+    else if (key == 'k') {
+        solve_maze_lh(); // Solve the maze via left-hand rule
+    }
+} 
 
 void mouse(int button, int state, int x, int y) {
     if (button == GLUT_LEFT_BUTTON) {
