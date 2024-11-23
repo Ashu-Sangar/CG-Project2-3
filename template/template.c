@@ -1103,6 +1103,9 @@ void keyboard(unsigned char key, int mousex, int mousey) {
         glutPostRedisplay();
         print_location();
     }
+    else if (key == 'e') {
+        turn_left();
+    }
     else if (key == 'r') {
         turn_right();
     }
@@ -1360,6 +1363,20 @@ void slide_right(){
 void turn_left(){
     direction = (direction + 3) % 4; // updates player direction counterclockwise
 
+    if (direction == 0) { // facing North
+        at_x = eye_x;
+        at_z = eye_z - 1;
+    } else if (direction == 1) { // facing East
+        at_x = eye_x + 1;
+        at_z = eye_z;
+    } else if (direction == 2) { // facing South
+        at_x = eye_x;
+        at_z = eye_z + 1;
+    } else if (direction == 3) { // facing West
+        at_x = eye_x - 1;
+        at_z = eye_z;
+    }
+    model_view = look_at((vec4){eye_x, 2, eye_z, 1}, (vec4){at_x, 2, at_z, 1}, (vec4){0, 1, 0, 0});
     //model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
     glutPostRedisplay();
 }
@@ -1367,6 +1384,21 @@ void turn_left(){
 void turn_right(){
     direction = (direction + 1) % 4; //updates player direction clockwise
 
+    if (direction == 0) { // facing North
+        at_x = eye_x;
+        at_z = eye_z - 1;
+    } else if (direction == 1) { // facing East
+        at_x = eye_x + 1;
+        at_z = eye_z;
+    } else if (direction == 2) { // facing South
+        at_x = eye_x;
+        at_z = eye_z + 1;
+    } else if (direction == 3) { // facing West
+        at_x = eye_x - 1;
+        at_z = eye_z;
+    }
+    model_view = look_at((vec4){eye_x, 2, eye_z, 1}, (vec4){at_x, 2, at_z, 1}, (vec4){0, 1, 0, 0});
+    /*
     mat4 rot = rotate_y((-90.0 * 180.0) / M_PI);
     vec4 new_at_point = mv_multiplication(rot, (vec4) {at_x, 2, at_z, 1});
     //mat4 tran = translate(0, 0, 0);
@@ -1378,7 +1410,9 @@ void turn_right(){
     
     model_view = m3;
     //model_view = mm_multiplication(look_at((vec4) {eye_x, 2, eye_z, 1}, new_at_point, (vec4) {0, 1, 0, 0}), m3);
+    */
     glutPostRedisplay();
+    
 }
 
 void create_rotation() {
