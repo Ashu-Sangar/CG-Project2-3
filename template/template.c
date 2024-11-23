@@ -87,6 +87,13 @@ int reset_step = 0; // Current step in the reset process
 int reset_steps = 30; // Total number of steps for the reset
 mat4 delta_ctm; // Incremental change matrix
 
+//player tracking
+int player_row = -1; // -1 just for init purposes
+int player_col = -1;
+int direction = 0; // 0 = North, 1 = East, 2 = South, 3 = West
+int exit_direction = -1; // -1 for no direction, but otherwise follows same rules as avove
+bool inside_maze = false; // is the player inside the maze? 
+
 // gonna make the maze using a 2d array of structs
 typedef struct {
     bool top_wall;    // true if the wall exists
@@ -1084,6 +1091,14 @@ void keyboard(unsigned char key, int mousex, int mousey) {
         //eye_y, at_y = 2;
         eye_z = maze_z_size + 1;
         at_z = maze_z_size;
+
+        // quinn code: init player position tracking outside maze 
+        player_row = maze_z_size - 1; // entrance row
+        player_col = 0;               // entrance column
+        direction = 0;                // start facing snorth
+        inside_maze = false;          // player is outside
+        exit_direction = 2;           // bc we outside the entrance, exit direction is south
+
         model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
         glutPostRedisplay();
         print_location();
@@ -1168,6 +1183,151 @@ void special(int key, int x, int y) {
 
 }
 
+//collision detection
+bool can_move_inside_maze(int row, int col, int direction) {
+    if (direction == 0 && maze[row][col].top_wall) return false;    // north
+    if (direction == 1 && maze[row][col].right_wall) return false; // east
+    if (direction == 2 && maze[row][col].bottom_wall) return false; // south
+    if (direction == 3 && maze[row][col].left_wall) return false;  // west
+    return true;
+}
+
+bool can_reenter_maze(int exit_direction, int current_direction, char movement_type) {
+    // how this works is that whenever we exit the maze, we can only re-enter from that same location
+    //bc of rotation, we want to make sure that the only way we can move while outside the maze is to go back in
+    if (exit_direction == 0) { // went out the exit
+        if (current_direction == 0 && movement_type == 'B') return true; // backwards
+        if (current_direction == 1 && movement_type == 'R') return true; // slide right
+        if (current_direction == 2 && movement_type == 'F') return true; // forwards
+        if (current_direction == 3 && movement_type == 'L') return true; // slide lLeft
+    } else if (exit_direction == 2) { //went out the entrance
+        if (current_direction == 0 && movement_type == 'F') return true; // forwards
+        if (current_direction == 1 && movement_type == 'L') return true; // slide left
+        if (current_direction == 2 && movement_type == 'B') return true; // backwards
+        if (current_direction == 3 && movement_type == 'R') return true; // slide right
+    }
+
+    return false; // if none of the conditions match, then movement isnt allowed
+}
+
+void forward() {
+    if (!inside_maze) {
+        // outside the maze, movement is only allowed if going back into maze
+        if (can_reenter_maze(exit_direction, direction, 'F')) {
+            inside_maze = true;
+            exit_direction = -1; // reset exit direction
+            if (direction == 0) { eye_z -= 2; at_z -= 2;} // move back into maze but dont update player position bc its still saved as if we are still in the maze
+            else if (direction == 2) { eye_z += 2; at_z += 2; }
+        }
+    } else {
+        // check if we are leaving the maze through the exit or entrance
+        if ((player_row == 0 && player_col == maze_x_size - 1 && direction == 0) || // leaving thru exit
+            (player_row == maze_z_size - 1 && player_col == 0 && direction == 2)) { 
+            if (direction == 0) { eye_z -= 2; at_z -= 2;} // move depending on entrance or exit
+            else if (direction == 2) {eye_z += 2; at_z += 2; }
+            inside_maze = false; //dont update player position, but mark that we are outside maze now
+            exit_direction = direction; // update exit direction
+        } else if (can_move_inside_maze(player_row, player_col, direction)) {
+            // normal movement conditions, just move forward if no wall is blocking
+            if (direction == 0) { player_row--; eye_z -= 2; at_z -= 2;} // north
+            else if (direction == 1) { player_col++; eye_x += 2; at_x += 2; } // east
+            else if (direction == 2) { player_row++; eye_z += 2; at_z += 2; } // south
+            else if (direction == 3) { player_col--; eye_x -= 2; at_x -= 2; } // west
+        }
+    }
+    model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+    glutPostRedisplay();
+}
+
+void backward() {
+    if (!inside_maze) {
+        // outside the maze, movement is only allowed if going back into maze
+        if (can_reenter_maze(exit_direction, direction, 'B')) {
+            inside_maze = true;
+            exit_direction = -1; // reset exit direction
+            if (direction == 0) { eye_z += 2; at_z += 2; } // move back into maze but dont update player position bc its still saved as if we are still in the maze
+            else if (direction == 2) { eye_z -= 2; at_z -= 2; }
+        }
+    } else {
+        // check if we are leaving the maze through the exit or entrance
+        if ((player_row == maze_z_size - 1 && player_col == 0 && direction == 0) || // leaving thru entrance
+            (player_row == 0 && player_col == maze_x_size - 1 && direction == 2)) { // leaving thru exit
+            if (direction == 0) {eye_z += 2; at_z += 2; } // then move depending on entrance or exit
+            else if (direction == 2) {eye_z -= 2; at_z -= 2; }
+            inside_maze = false;
+            exit_direction = (direction + 2) % 4; // update exit direction to the opposite of current direction (bc if we are facing north(0) and we back up out of the entrance, then our exit direction is 2 bc we were moving in the south(2) direction)
+        } else if (can_move_inside_maze(player_row, player_col, (direction + 2) % 4)) { //when calling can_move(), we use (direction + 2) % 4) because we want to check the wall behind us
+            // normal movement conditions, move if no wall is blocking
+            if (direction == 0) { player_row++; eye_z += 2; at_z += 2; } // move south
+            else if (direction == 1) { player_col--; eye_x -= 2; at_x -= 2; } // move west
+            else if (direction == 2) { player_row--; eye_z -= 2; at_z -= 2; } // north
+            else if (direction == 3) { player_col++; eye_x += 2; at_x += 2; } // east
+        }
+    }
+    model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+    glutPostRedisplay();
+}
+
+void slide_left() {
+    // outside the maze, movement is only allowed if going back into maze
+    if (!inside_maze) {
+        if (can_reenter_maze(exit_direction, direction, 'L')) {
+            inside_maze = true;
+            exit_direction = -1;
+            if (direction == 1) { eye_z -= 2; at_z -= 2; }
+            else if (direction == 3) { eye_z += 2; at_z += 2; } 
+        }
+    } else {
+        // check if we are leaving the maze through the exit or entrance
+        if ((player_row == maze_z_size - 1 && player_col == 0 && direction == 3) || // leaving thru entrance
+            (player_row == 0 && player_col == maze_x_size - 1 && direction == 1)) { // leaving thru exit
+            if (direction == 1) {eye_z -= 2; at_z -= 2; }
+            else if (direction == 3) {eye_z += 2; at_z += 2; }
+            inside_maze = false;
+            exit_direction = (direction + 3) % 4; // exit direction is left of current direction
+        } else if (can_move_inside_maze(player_row, player_col, (direction + 3) % 4)) {
+            // normal movement conditions, move if no wall is blocking
+            if (direction == 0) { player_col--; eye_x -= 2; at_x -= 2;} // moving west
+            else if (direction == 1) { player_row--; eye_z -= 2; at_z -= 2; } // moving north
+            else if (direction == 2) { player_col++; eye_x += 2; at_x += 2; } // east
+            else if (direction == 3) { player_row++; eye_z += 2; at_z += 2; } // south
+        }
+    }
+    model_view = look_at((vec4){eye_x, 2, eye_z, 1}, (vec4){at_x, 2, at_z, 1}, (vec4){0, 1, 0, 0}); 
+    glutPostRedisplay();
+}
+
+void slide_right() {
+    // outside the maze, movement is only allowed if going back into maze
+    if (!inside_maze) {
+        if (can_reenter_maze(exit_direction, direction, 'R')) {
+            inside_maze = true;
+            exit_direction = -1;
+            if (direction == 1) { eye_z += 2; at_z += 2; }
+            else if (direction == 3) { eye_z -= 2; at_z -= 2; }
+        }
+    } else {
+        // check if we are leaving the maze through the exit or entrance
+        if ((player_row == maze_z_size - 1 && player_col == 0 && direction == 1) || // leaving thru entrance
+            (player_row == 0 && player_col == maze_x_size - 1 && direction == 3)) { // leaving thru exit
+            if (direction == 1) { player_row++; eye_z += 2; at_z += 2; }
+            else if (direction == 3) { player_row--; eye_z -= 2; at_z -= 2; }
+            inside_maze = false;
+            exit_direction = (direction + 1) % 4; // exit direction is right of current direction
+        } else if (can_move_inside_maze(player_row, player_col, (direction + 1) % 4)) {
+            // normal movement conditions, move if no wall is blocking
+            if (direction == 0) { player_col++; eye_x += 2; at_x += 2;} // moving east
+            else if (direction == 1) { player_row++; eye_z += 2; at_z += 2; } // south
+            else if (direction == 2) { player_col--; eye_x -= 2; at_x -= 2; } // west
+            else if (direction == 3) { player_row--; eye_z -= 2; at_z -= 2; } // north
+        }
+    }
+    model_view = look_at((vec4){eye_x, 2, eye_z, 1}, (vec4){at_x, 2, at_z, 1}, (vec4){0, 1, 0, 0});
+    glutPostRedisplay();
+}
+
+/*
+OLD FUCNTIONS JUST FOR REFRENCE
 void forward(){
     eye_z -= 2;
     at_z -= 2;
@@ -1195,14 +1355,17 @@ void slide_right(){
     model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
     glutPostRedisplay();
 }
+*/
 
 void turn_left(){
+    direction = (direction + 3) % 4; // updates player direction counterclockwise
 
-    model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+    //model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
     glutPostRedisplay();
 }
 
 void turn_right(){
+    direction = (direction + 1) % 4; //updates player direction clockwise
 
     mat4 rot = rotate_y((-90.0 * 180.0) / M_PI);
     vec4 new_at_point = mv_multiplication(rot, (vec4) {at_x, 2, at_z, 1});
