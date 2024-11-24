@@ -999,9 +999,9 @@ void resetPlatform() {
 }
 
 void solve_maze_lh() {
-    //when user is outside maze
+    // When the user is outside the maze
     if (!inside_maze) {
-        // if outside, turn to face north and move forward into the maze
+        // If outside, turn to face north and move forward into the maze
         while (direction != 0) {
             turn_left();
         }
@@ -1012,7 +1012,7 @@ void solve_maze_lh() {
     while (!(player_row == 0 && player_col == maze_x_size - 1)) {
         // Check if there's an open wall on the left
         int left_direction = (direction + 3) % 4; // Direction to the left
-        
+
         if (can_move_inside_maze(player_row, player_col, left_direction)) {
             // Turn left and move through the open wall
             turn_left();
@@ -1035,7 +1035,13 @@ void solve_maze_lh() {
         glutPostRedisplay();
     }
 
-    turn_left();
+    // Ensure the player is facing the exit direction
+    // For example, if the exit is to the north, set direction to 0
+    while (direction != 0) {
+        turn_left();
+    }
+    
+    // Move forward to exit the maze
     forward();
     glutPostRedisplay();
 }
