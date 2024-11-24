@@ -50,8 +50,8 @@ mat4 prev_ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
 mat4 ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
 GLuint ctm_location;
 
-float lrbt = 1.0;
-float near = -1.0;
+float lrbt = .75;
+float near = -.75;
 
 // Model view and projection variables
 GLuint model_view_location;
@@ -130,6 +130,8 @@ int look_left_animation = 0;
 int look_right_animation = 0;
 float eye_target = 0.0;
 vec4 lateral_animation_vec;
+float target_eye_x, target_eye_z;
+float target_at_x, target_at_z;
 
 // gonna make the maze using a 2d array of structs
 typedef struct {
@@ -197,7 +199,6 @@ void init_maze(int rows, int cols) {
     // create exit (remove top right, top wall)
     maze[0][cols - 1].top_wall = false;
 }
-
 
 // helper function for picking rand values 
 int rand_between(int low, int high) {
@@ -668,7 +669,7 @@ void init(void)
     glUniform1i(texture_location, 0);
 
     model_view = look_at((vec4) {0, 0, maze_z_size * 3, 1}, (vec4) {0, 0, maze_z_size * 3 - 1, 1}, (vec4) {0, 1, 0, 0});
-    projection = frustum(-1, 1, -1, 1, -1, -100);
+    projection = frustum(-1, 1, -1, 1, -1, -200);
 
     ctm_location = glGetUniformLocation(program, "ctm");
     model_view_location = glGetUniformLocation(program, "model_view");
@@ -1004,25 +1005,37 @@ void display_sun() {
 }
 
 void idle() {
-
     if(is_animating){
         if(reset_animation){
 
         }
-        else if(forward_animation){
-            if(num_steps == max_steps) {
+        else if (forward_animation) {
+            if (num_steps > max_steps) {
+                // end animation
                 is_animating = 0;
                 forward_animation = 0;
-                eye_z -= 2;
-                at_z -= 2;
+
+                // finalize values
+                eye_x = target_eye_x;
+                eye_z = target_eye_z;
+                at_x = target_at_x;
+                at_z = target_at_z;
+
                 num_steps = 0;
-            }   
-            else{
-                //print_location();
-                float alpha = num_steps / (float) max_steps;
-                vec4 v1 = sv_multiplication(lateral_animation_vec, alpha);
-                vec4 temp_eye = vv_addition((vec4) {eye_x, 2, eye_z, 1}, v1);
-                model_view = look_at(temp_eye, (vec4) {eye_x, 2, temp_eye.z - 1, 1}, (vec4) {0, 1, 0, 0});
+            } else {
+                //tried to replicate what was described on the project page
+                float alpha = (float)num_steps / max_steps;
+
+                float new_eye_x = (1 - alpha) * eye_x + alpha * target_eye_x;
+                float new_eye_z = (1 - alpha) * eye_z + alpha * target_eye_z;
+                float new_at_x = (1 - alpha) * at_x + alpha * target_at_x;
+                float new_at_z = (1 - alpha) * at_z + alpha * target_at_z;
+
+                // update model_view matrix
+                model_view = look_at((vec4){new_eye_x, 2, new_eye_z, 1}, 
+                                     (vec4){new_at_x, 2, new_at_z, 1}, 
+                                     (vec4){0, 1, 0, 0});
+
                 num_steps++;
             }
         }
@@ -1116,7 +1129,7 @@ void resetPlatform() {
         prev_ctm = current_ctm;
 
         // Register the idle function to handle the reset animation
-        glutIdleFunc(idle);
+        //glutIdleFunc(idle);
     }
 }
 
@@ -1219,16 +1232,15 @@ void display(void)
 
 void keyboard(unsigned char key, int mousex, int mousey) {
     float rotation_angle = 20.0f; // Rotation angle in degrees
-    if (key == 'i') { // Zoom In
-        float zoom_increment = 1.15f;
-        scale_factor *= zoom_increment;
-
+    if (key == 'o') { // zoom out
+        lrbt += 0.1;
+        projection = frustum(-lrbt, lrbt, -lrbt, lrbt, -1, -200);
         glutPostRedisplay();
     }
-    else if (key == 'o') { // Zoom Out
-        float zoom_decrement = 1.0f / 1.15f;
-        scale_factor *= zoom_decrement;
-        glutPostRedisplay(); 
+    else if (key == 'i') { // zoom in
+        lrbt -= 0.1;
+        projection = frustum(-lrbt, lrbt, -lrbt, lrbt, -1, -200);
+        glutPostRedisplay();
     }
     else if (key == 'q') {
         #ifndef __APPLE__
@@ -1280,7 +1292,6 @@ void keyboard(unsigned char key, int mousex, int mousey) {
     else if (key == 'f') { // Go to start of maze
         eye_x = -maze_x_size + 1;
         at_x = -maze_x_size + 1;
-        //eye_y, at_y = 2;
         eye_z = maze_z_size + 1;
         at_z = maze_z_size;
 
@@ -1291,6 +1302,7 @@ void keyboard(unsigned char key, int mousex, int mousey) {
         inside_maze = false;          // player is outside
         exit_direction = 2;           // bc we outside the entrance, exit direction is south
 
+        projection = frustum(-.75, .75, -.75, .75, -1, -200); 
         model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
         glutPostRedisplay();
         print_location();
@@ -1309,16 +1321,6 @@ void keyboard(unsigned char key, int mousex, int mousey) {
     }
     else if (key == 'k') {
         solve_maze_lh(); // Solve the maze via left-hand rule
-    }
-    else if (key == 'm') { // zoom out
-        lrbt += 0.1;
-        projection = frustum(-lrbt, lrbt, -lrbt, lrbt, -1, -100);
-        glutPostRedisplay();
-    }
-    else if (key == 'n') { // zoom in
-        lrbt -= 0.1;
-        projection = frustum(-lrbt, lrbt, -lrbt, lrbt, -1, -100);
-        glutPostRedisplay();
     }
     else if (key == 'l') {
         if(enable_light == 0) enable_light = 1;
@@ -1445,13 +1447,8 @@ void motion(int x, int y) {
 
 void special(int key, int x, int y) {
     if(key == GLUT_KEY_UP){
-        //step_counter = 0;
-        //is_animating = 1;
-        //forward();
-        lateral_animation_vec = vv_subtraction((vec4) {eye_x, 2, eye_z - 2.0, 1}, (vec4) {eye_x, 2, eye_z, 1});
-        forward_animation = 1;
-        is_animating = 1;
-        //print_location();
+        forward();
+        print_location();
     }
     else if(key == GLUT_KEY_DOWN){
         backward();
@@ -1621,6 +1618,72 @@ bool can_reenter_maze(int exit_direction, int current_direction, char movement_t
 }
 
 void forward() {
+    if (is_animating) {
+        return;
+    }
+
+    // flag to track if movement is allowed at the end of all these conditions
+    int can_animate = 0;
+
+    if (!inside_maze) {
+        if (can_reenter_maze(exit_direction, direction, 'F')) {
+            inside_maze = true;
+            exit_direction = -1;
+            if (direction == 0) { 
+                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
+                target_eye_x = eye_x; target_at_x = at_x; 
+            } else if (direction == 2) { 
+                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
+                target_eye_x = eye_x; target_at_x = at_x; 
+            }
+            can_animate = 1;
+        }
+    } else {
+        if ((player_row == 0 && player_col == maze_x_size - 1 && direction == 0) || 
+            (player_row == maze_z_size - 1 && player_col == 0 && direction == 2)) {
+            if (direction == 0) { 
+                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
+                target_eye_x = eye_x; target_at_x = at_x; 
+            } else if (direction == 2) { 
+                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
+                target_eye_x = eye_x; target_at_x = at_x; 
+            }
+            inside_maze = false;
+            exit_direction = direction;
+            can_animate = 1;
+        } else if (can_move_inside_maze(player_row, player_col, direction)) {
+            if (direction == 0) { 
+                player_row--; 
+                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
+                target_eye_x = eye_x; target_at_x = at_x; 
+            } else if (direction == 1) { 
+                player_col++; 
+                target_eye_x = eye_x + 2; target_at_x = at_x + 2; 
+                target_eye_z = eye_z; target_at_z = at_z; 
+            } else if (direction == 2) { 
+                player_row++; 
+                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
+                target_eye_x = eye_x; target_at_x = at_x; 
+            } else if (direction == 3) { 
+                player_col--; 
+                target_eye_x = eye_x - 2; target_at_x = at_x - 2; 
+                target_eye_z = eye_z; target_at_z = at_z; 
+            }
+            can_animate = 1;
+        }
+    }
+
+    if (can_animate) {
+        // start animation
+        forward_animation = 1;
+        num_steps = 0;
+        is_animating = 1;
+    }
+}
+
+
+/*
+void forward() {
     if (!inside_maze) {
         // outside the maze, movement is only allowed if going back into maze
         if (can_reenter_maze(exit_direction, direction, 'F')) {
@@ -1645,9 +1708,10 @@ void forward() {
             else if (direction == 3) { player_col--; eye_x -= 2; at_x -= 2; } // west
         }
     }
-    model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
-    glutPostRedisplay();
+    //model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+    //glutPostRedisplay();
 }
+*/
 
 void backward() {
     if (!inside_maze) {
@@ -1915,6 +1979,7 @@ int main(int argc, char **argv)
     glutMouseFunc(mouse);
     glutMotionFunc(motion);
     glutSpecialFunc(special);
+    glutIdleFunc(idle);
     glutMainLoop();
 
     cleanup();
