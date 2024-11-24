@@ -153,6 +153,55 @@ typedef struct {
     int parent_row, parent_col;  // parent position for path reconstruction
 } Node;
 
+//a queue to hold movements to animate in order
+typedef enum {
+    MOVE_FORWARD,
+    MOVE_BACKWARD,
+    SLIDE_LEFT,
+    SLIDE_RIGHT,
+    TURN_LEFT,
+    TURN_RIGHT
+} MovementType;
+
+typedef struct {
+    MovementType type;
+} MovementCommand;
+
+#define QUEUE_SIZE 100
+MovementCommand movement_queue[QUEUE_SIZE];
+int queue_front = 0, queue_back = 0;
+
+//function to put the movements into the queue
+void enqueue_movement(MovementType type) {
+    if ((queue_back + 1) % QUEUE_SIZE == queue_front) {
+        fprintf(stderr, "Movement queue overflow!\n");
+        return;
+    }
+    movement_queue[queue_back].type = type;
+    queue_back = (queue_back + 1) % QUEUE_SIZE;
+}
+
+//and a function to dequeue and execute the next movement
+void process_next_movement() {
+    if (queue_front == queue_back) {
+        // No more movements in the queue
+        return;
+    }
+
+    MovementCommand cmd = movement_queue[queue_front];
+    queue_front = (queue_front + 1) % QUEUE_SIZE;
+
+    // Execute the movement
+    switch (cmd.type) {
+        case MOVE_FORWARD: forward(); break;
+        case MOVE_BACKWARD: backward(); break;
+        case SLIDE_LEFT: slide_left(); break;
+        case SLIDE_RIGHT: slide_right(); break;
+        case TURN_LEFT: turn_left(); break;
+        case TURN_RIGHT: turn_right(); break;
+    }
+}
+
 //allocate mem for maze size
 void allocate_maze(int rows, int cols) {
     maze = (Cell **)malloc(rows * sizeof(Cell *));
@@ -1135,6 +1184,11 @@ void idle() {
             
         }
     }
+    // Process next queued movement if not animating
+    if (!is_animating) {
+        process_next_movement();
+    }
+    
     if (resetting && reset_step < reset_steps) {
         // Incrementally reduce prev_ctm by delta_ctm to approach the identity matrix
         prev_ctm = mm_subtraction(prev_ctm, delta_ctm);
@@ -1202,7 +1256,9 @@ void solve_maze_lh() {
     if (!inside_maze) {
         // If outside, turn to face north and move forward into the maze
         while (direction != 0) {
-            turn_left();
+            while(!is_animating){
+                turn_left();
+            }
         }
         forward();
     }
@@ -1535,10 +1591,10 @@ void shortest_path(int player_row, int player_col, int direction, bool inside_ma
     if (!inside_maze) {
         // if outside, turn to face north and move forward into the maze
         while (direction != 0) {
-            turn_left();
+            enqueue_movement(TURN_LEFT);
             direction = (direction + 3) % 4; // update direction counterclockwise bc we arent updating global variables in this
         }
-        forward();
+        enqueue_movement(MOVE_FORWARD);
     }
 
     // BFS setup
@@ -1631,12 +1687,12 @@ void shortest_path(int player_row, int player_col, int direction, bool inside_ma
 
         // then rotate to face the target direction
         while (direction != target_direction) {
-            turn_right();
+            enqueue_movement(TURN_RIGHT);
             direction = (direction + 1) % 4; // update direction 
         }
 
         // once facing traget, move forward into target cell
-        forward();
+        enqueue_movement(MOVE_FORWARD);
 
         // then update the player's current position
         player_row = target_row;
@@ -1646,12 +1702,12 @@ void shortest_path(int player_row, int player_col, int direction, bool inside_ma
     // the above function should bring us to the exit, but we still have to walk thru the exit
     //if we arent already facing the exit, turn until we are
     while (direction != 0) {
-        turn_left();
+        enqueue_movement(TURN_LEFT);
         direction = (direction + 3) % 4; // update direction
     }
 
     // once facing the exit, move forward and we are done
-    forward();
+    enqueue_movement(MOVE_FORWARD);
 }
 
 //collision detection
