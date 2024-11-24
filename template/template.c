@@ -1196,54 +1196,46 @@ void resetPlatform() {
         //glutIdleFunc(idle);
     }
 }
-
 void solve_maze_lh() {
-    // When the user is outside the maze
+    // Perform one step of the left-hand rule
     if (!inside_maze) {
-        // If outside, turn to face north and move forward into the maze
-        while (direction != 0) {
+        if (direction != 0) {
             turn_left();
+        } else {
+            forward();
         }
-        forward();
+        return;
     }
 
-    // While the player is not at the maze exit
-    while (!(player_row == 0 && player_col == maze_x_size - 1)) {
-        // Check if there's an open wall on the left
-        int left_direction = (direction + 3) % 4; // Direction to the left
+    if (!(player_row == 0 && player_col == maze_x_size - 1)) {
+        int left_direction = (direction + 3) % 4;
 
         if (can_move_inside_maze(player_row, player_col, left_direction)) {
-            // Turn left and move through the open wall
             turn_left();
             forward();
         } else if (can_move_inside_maze(player_row, player_col, direction)) {
-            // If moving left isn't possible, move forward
             forward();
         } else {
-            // If forward is blocked, try turning right
             turn_right();
-            if (can_move_inside_maze(player_row, player_col, direction)) {
-                forward();
-            } else {
-                // If right is also blocked, turn around and backtrack
-                turn_right(); // Complete 180-degree turn
+            if (!can_move_inside_maze(player_row, player_col, direction)) {
+                turn_right();
                 forward();
             }
         }
-        // Update the display
+
         glutPostRedisplay();
+        return;
     }
 
-    // Ensure the player is facing the exit direction
-    // For example, if the exit is to the north, set direction to 0
-    while (direction != 0) {
+    if (direction != 0) {
         turn_left();
+    } else {
+        forward();
     }
-    
-    // Move forward to exit the maze
-    forward();
+
     glutPostRedisplay();
 }
+
 
 void display(void)
 {
