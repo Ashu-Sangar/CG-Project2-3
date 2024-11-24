@@ -30,7 +30,10 @@ void slide_left();
 void slide_right();
 void turn_left();
 void turn_right();
-void print_location();
+bool can_move_inside_maze(int row, int col, int direction);
+bool can_reenter_maze(int exit_direction, int current_direction, char movement_type);
+void print_location(void);
+void shortest_path(int player_row, int player_col, int direction, bool inside_maze);
 
 // mouse, rotation, and scaling variables
 float scale_factor = 1.0f; 
@@ -103,6 +106,16 @@ typedef struct {
 } Cell;
 
 Cell **maze;
+
+//this and the node are for shortest path
+// direction offsets: (North, East, South, West) used to calculate position in next cell during BFS
+int d_row[] = {-1, 0, 1, 0};
+int d_col[] = {0, 1, 0, -1};
+
+typedef struct {
+    int row, col;  // current position
+    int parent_row, parent_col;  // parent position for path reconstruction
+} Node;
 
 //allocate mem for maze size
 void allocate_maze(int rows, int cols) {
@@ -1109,6 +1122,9 @@ void keyboard(unsigned char key, int mousex, int mousey) {
     else if (key == 'r') {
         turn_right();
     }
+    else if (key == 'z') {
+        shortest_path(player_row, player_col, direction, inside_maze);
+    }
     else if (key == ' ') { // Reset platform
         resetPlatform();
     }
@@ -1184,6 +1200,131 @@ void special(int key, int x, int y) {
         print_location();
     }
 
+}
+
+//shortest path alg using breadth-first search algorithm
+void shortest_path(int player_row, int player_col, int direction, bool inside_maze) {
+    //to start, handle case when player starts outside the map
+    if (!inside_maze) {
+        // if outside, turn to face north and move forward into the maze
+        while (direction != 0) {
+            turn_left();
+            direction = (direction + 3) % 4; // update direction counterclockwise bc we arent updating global variables in this
+        }
+        forward();
+    }
+
+    // BFS setup
+    int queue_size = maze_z_size * maze_x_size;
+    Node queue[queue_size]; // stores nodes to visit next
+    int front = 0, back = 0; //track front and end of queue
+
+    // visited grid and parent tracking
+    bool visited[maze_z_size][maze_x_size]; //keeps track of whether a cell has already been processed to avoid revisiting
+    memset(visited, false, sizeof(visited));
+
+    Node parents[maze_z_size][maze_x_size]; //tracks parent of each cell, this is used to reconstruct the path later
+
+    // add starting node to the queue
+    queue[back++] = (Node){player_row, player_col, -1, -1}; //add player curr position as first node in queue
+    visited[player_row][player_col] = true; //then mark it as visited
+
+    Node exit_node = {-1, -1, -1, -1};
+    bool found_exit = false;
+
+    // BFS loop
+    while (front < back) {
+        Node current = queue[front++];
+        int row = current.row;
+        int col = current.col;
+
+        // check if we at the exit
+        if (row == 0 && col == maze_x_size - 1) { // <-- exit position
+            exit_node = current;
+            found_exit = true;
+            break;
+        }
+
+        // not at exit, explore the 4 neighboring units
+        for (int dir = 0; dir < 4; dir++) {
+            int new_row = row + d_row[dir]; //the d_row and d_col offset arrays find the correct neighboring cells based on the direction we are looking at
+            int new_col = col + d_col[dir];
+
+            // check that: its within bounds, it hasnt been visited, and its not blocked by a wall in the given direction
+            if (new_row >= 0 && new_row < maze_z_size && new_col >= 0 && new_col < maze_x_size &&
+                !visited[new_row][new_col] &&
+                ((dir == 0 && !maze[row][col].top_wall) ||    // north wall
+                 (dir == 1 && !maze[row][col].right_wall) ||  // east
+                 (dir == 2 && !maze[row][col].bottom_wall) || // south
+                 (dir == 3 && !maze[row][col].left_wall))) {  // west
+                //this is the biggest if statement condition ive ever made haha
+                
+                //add the valid neighbors to the queue and mark them as visited
+                //then update parents array to track how each cell was reached
+                queue[back++] = (Node){new_row, new_col, row, col};
+                visited[new_row][new_col] = true;
+                parents[new_row][new_col] = current;
+            }
+        }
+    }
+    //edge case for if the BFS couldnt find the end, this should never happen
+    if (!found_exit) {
+        fprintf(stderr, "No path to the exit found!\n");
+        return;
+    }
+
+    // reconstruct the path from exit to start
+    Node path[queue_size];
+    int path_length = 0;
+
+    //start from exit node, use parents array to trace back to start, store each node in the path array
+    for (Node current = exit_node; current.parent_row != -1; current = parents[current.row][current.col]) {
+        path[path_length++] = current;
+    }
+
+    // reverse the path for navigation
+    for (int i = 0; i < path_length / 2; i++) {
+        Node temp = path[i];
+        path[i] = path[path_length - 1 - i];
+        path[path_length - 1 - i] = temp;
+    }
+
+    // now navigate thru the path
+    for (int i = 0; i < path_length; i++) {
+        Node next = path[i];
+        int target_row = next.row;
+        int target_col = next.col;
+
+        // find the direction needed to face the target
+        int target_direction = -1;
+        if (target_row < player_row) target_direction = 0; // north
+        else if (target_col > player_col) target_direction = 1; // east
+        else if (target_row > player_row) target_direction = 2; // south
+        else if (target_col < player_col) target_direction = 3; // west
+
+        // then rotate to face the target direction
+        while (direction != target_direction) {
+            turn_right();
+            direction = (direction + 1) % 4; // update direction 
+        }
+
+        // once facing traget, move forward into target cell
+        forward();
+
+        // then update the player's current position
+        player_row = target_row;
+        player_col = target_col;
+    }
+
+    // the above function should bring us to the exit, but we still have to walk thru the exit
+    //if we arent already facing the exit, turn until we are
+    while (direction != 0) {
+        turn_left();
+        direction = (direction + 3) % 4; // update direction
+    }
+
+    // once facing the exit, move forward and we are done
+    forward();
 }
 
 //collision detection
@@ -1361,7 +1502,7 @@ void slide_right(){
 */
 
 void turn_left(){
-    direction = (direction + 3) % 4; // updates player direction counterclockwise
+    direction = (direction + 3) % 4; // updates player direction counterclockwise THIS NEEDS TO BE HERE
 
     if (direction == 0) { // facing North
         at_x = eye_x;
@@ -1382,7 +1523,7 @@ void turn_left(){
 }
 
 void turn_right(){
-    direction = (direction + 1) % 4; //updates player direction clockwise
+    direction = (direction + 1) % 4; //updates player direction clockwise THIS NEEDS TO BE HERE
 
     if (direction == 0) { // facing North
         at_x = eye_x;
