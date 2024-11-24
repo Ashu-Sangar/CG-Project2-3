@@ -8,9 +8,11 @@ Keys Used to Operate Program:
 - To move camera: Arrow Keys
 - To look right: R
 - To look left: E
--
--
--
--
--
+- To enable/disable lighting effect: L
+- To turn on/off ambient light (once lighting effect is enabled): 7
+- To turn on/off diffuse light (once lighting effect is enabled): 8
+- To turn on/off specular light (once lighting effect is enabled): 9
+- To turn off all 3 types of light at once (once lighting effect is enabled): 0
+- Zoom in: N
+- Zoom out: M
 -
