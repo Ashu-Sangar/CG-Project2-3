@@ -641,8 +641,13 @@ void init(void)
     size_t size_text_coords = sizeof(vec2) * num_vertices;
 
     GLuint vao;
+    #ifdef __APPLE__
     glGenVertexArraysAPPLE(1, &vao);
     glBindVertexArrayAPPLE(vao);
+    #else
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    #endif
 
     GLuint buffer;
     glGenBuffers(1, &buffer);
