@@ -870,7 +870,7 @@ void generate_pyramid(int x_size, int z_size) {
 
         // Call init_texture(1,1) after completing layer 0
         if (layer == 0) {
-            init_texture(.75, .5);
+            init_texture(1, 1);
         }
         y_translation -= block_size_x; // Move down for the next layer
     }
