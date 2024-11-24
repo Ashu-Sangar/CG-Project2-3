@@ -50,6 +50,9 @@ mat4 prev_ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
 mat4 ctm = {{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}};
 GLuint ctm_location;
 
+float lrbt = 1.0;
+float near = -1.0;
+
 // Model view and projection variables
 GLuint model_view_location;
 GLuint projection_location;
@@ -77,12 +80,14 @@ vec4 *positions = NULL;
 vec2 *tex_coords = NULL;
 vec4 *block_positions = NULL; // Store positions for a single block
 vec2 *block_tex_coords = NULL; 
+vec4 *normals = NULL;
 
 //sun global varibles
 vec4 *sun_positions = NULL;
 vec2 *sun_tex_coords = NULL;
 int num_vertices_sun = 0; // Number of vertices for the sun
 vec4 sun_position = {0.0f, 16.0f, 0.0f, 1.0f};
+GLuint light_position_location;
 
 //platform reset:
 bool resetting = false; // Animation state
@@ -99,6 +104,32 @@ bool inside_maze = false; // is the player inside the maze?
 
 //left hand rule
 int maze_solving_in_progress = 0;
+
+//lighting stuff
+GLuint enable_light_location;
+int enable_light = 0;
+GLuint ambient_light_location;
+int ambient_light = 1;
+GLuint diffuse_light_location;
+int diffuse_light = 1;
+GLuint specular_light_location;
+int specular_light = 1;
+GLuint no_light_location;
+int no_light = 0;
+
+// Animation globals
+int is_animating = 0; // Animation state
+int num_steps = 0; // Current step
+int max_steps = 40; // Max number of steps for animation
+int reset_animation = 0;
+int forward_animation = 0;
+int backward_animation = 0;
+int slide_left_animation = 0;
+int slide_right_animation = 0;
+int look_left_animation = 0;
+int look_right_animation = 0;
+float eye_target = 0.0;
+vec4 lateral_animation_vec;
 
 // gonna make the maze using a 2d array of structs
 typedef struct {
@@ -558,6 +589,30 @@ void init(void)
     display_maze(maze_x_size, maze_z_size);
     display_sun();
 
+    normals = (vec4 *) malloc(sizeof(vec4) * num_vertices);
+    for(int i = 0; i < num_vertices; i += 36){
+        for(int j = 0; j < 36; j++){
+            if(j <= 5){
+                normals[i + j] = (vec4) {0, 0, 1, 0};
+            }
+            else if(j > 5 && j <= 11){
+                normals[i + j] = (vec4) {1, 0, 0, 0};
+            }
+            else if(j > 11 && j <= 17){
+                normals[i + j] = (vec4) {-1, 0, 0, 0};
+            }
+            else if(j > 17 && j <= 23){
+                normals[i + j] = (vec4) {0, 0, -1, 0};
+            }
+            else if(j > 23 && j <= 29){
+                normals[i + j] = (vec4) {0, 1, 0, 0};
+            }
+            else{
+                normals[i + j] = (vec4) {0, -1, 0, 0};
+            }
+        }
+    }
+
     int tex_width = 64;
     int tex_height = 64;
     GLubyte my_texels[tex_width][tex_height][3];
@@ -591,18 +646,23 @@ void init(void)
     GLuint buffer;
     glGenBuffers(1, &buffer);
     glBindBuffer(GL_ARRAY_BUFFER, buffer);
-    glBufferData(GL_ARRAY_BUFFER, size_positions + size_text_coords, NULL,
-    GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, size_positions * 2 + size_text_coords, NULL, GL_STATIC_DRAW);
+
     glBufferSubData(GL_ARRAY_BUFFER, 0, size_positions, positions);
-    glBufferSubData(GL_ARRAY_BUFFER, size_positions, size_text_coords,
-    tex_coords);
+    glBufferSubData(GL_ARRAY_BUFFER, size_positions, size_positions, normals);
+    glBufferSubData(GL_ARRAY_BUFFER, size_positions * 2, size_text_coords, tex_coords);
+
     GLuint vPosition = glGetAttribLocation(program, "vPosition");
     glEnableVertexAttribArray(vPosition);
     glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, (GLvoid *) (0));
+
+    GLuint vNormal = glGetAttribLocation(program, "vNormal");
+    glEnableVertexAttribArray(vNormal);
+    glVertexAttribPointer(vNormal, 4, GL_FLOAT, GL_FALSE, 0, (GLvoid *) (size_positions));
+
     GLuint vTexCoord = glGetAttribLocation(program, "vTexCoord");
     glEnableVertexAttribArray(vTexCoord);
-    glVertexAttribPointer(vTexCoord, 2, GL_FLOAT, GL_FALSE, 0,
-    (GLvoid *) (size_positions));
+    glVertexAttribPointer(vTexCoord, 2, GL_FLOAT, GL_FALSE, 0, (GLvoid *) (2 * size_positions));
 
     GLuint texture_location = glGetUniformLocation(program, "texture");
     glUniform1i(texture_location, 0);
@@ -613,6 +673,20 @@ void init(void)
     ctm_location = glGetUniformLocation(program, "ctm");
     model_view_location = glGetUniformLocation(program, "model_view");
     projection_location = glGetUniformLocation(program, "projection");
+
+    light_position_location = glGetUniformLocation(program, "light_position");
+    glUniform4fv(light_position_location, 1, (GLvoid *) &sun_position);
+
+    enable_light_location = glGetUniformLocation(program, "enable_light");
+    glUniform1i(enable_light_location, enable_light);
+    ambient_light_location = glGetUniformLocation(program, "ambient_light");
+    glUniform1i(ambient_light_location, ambient_light);
+    diffuse_light_location = glGetUniformLocation(program, "diffuse_light");
+    glUniform1i(diffuse_light_location, diffuse_light);
+    specular_light_location = glGetUniformLocation(program, "specular_light");
+    glUniform1i(specular_light_location, specular_light);
+    no_light_location = glGetUniformLocation(program, "no_light");
+    glUniform1i(no_light_location, no_light);
 
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.0, 0.0, 0.0, 1.0);
@@ -926,16 +1000,64 @@ void display_sun() {
 
     // Since we will always have sun's location, no need to do the thing with sending the ctm through the pipeline twice.
     // When we rotate the sun, just multiply each vertex by rotation matrix
-    float sun_scale = 3.0f; // The size of the sun
-    mat4 sun_scaling = scale(sun_scale, sun_scale, sun_scale);
-    mat4 sun_translation = translate(sun_position.x, sun_position.y, sun_position.z);
-    mat4 sun_ctm = mm_multiplication(sun_translation, sun_scaling);
-    for(int i = sun_start_index; i < num_vertices; i++){
-        positions[i] = mv_multiplication(sun_ctm, positions[i]);
-    }
+    
 }
 
 void idle() {
+
+    if(is_animating){
+        if(reset_animation){
+
+        }
+        else if(forward_animation){
+            if(num_steps == max_steps) {
+                is_animating = 0;
+                forward_animation = 0;
+                eye_z -= 2;
+                at_z -= 2;
+                num_steps = 0;
+            }   
+            else{
+                //print_location();
+                float alpha = num_steps / (float) max_steps;
+                vec4 v1 = sv_multiplication(lateral_animation_vec, alpha);
+                vec4 temp_eye = vv_addition((vec4) {eye_x, 2, eye_z, 1}, v1);
+                model_view = look_at(temp_eye, (vec4) {eye_x, 2, temp_eye.z - 1, 1}, (vec4) {0, 1, 0, 0});
+                num_steps++;
+            }
+        }
+        else if(backward_animation){
+            
+        }
+        else if(slide_left_animation){
+            
+        }
+        else if(slide_right_animation){
+            
+        }
+        else if(look_left_animation){
+            
+        }
+        else if(look_right_animation){
+            
+        }
+    }
+    
+    /*
+    if (resetting && reset_step < reset_steps) {
+        // Incrementally reduce prev_ctm by delta_ctm to approach the identity matrix
+        prev_ctm = mm_subtraction(prev_ctm, delta_ctm);
+
+        // Update the current transformation matrix (ctm) with the modified prev_ctm
+        ctm = prev_ctm;
+
+        // Increment the step counter to track progress of the reset animation
+        ++reset_step;
+    } else {
+        // Reset process is complete
+        resetting = false;
+    }*/
+
     if (resetting && reset_step < reset_steps) {
         // Incrementally reduce prev_ctm by delta_ctm to approach the identity matrix
         prev_ctm = mm_subtraction(prev_ctm, delta_ctm);
@@ -1057,15 +1179,19 @@ void display(void)
     //print_matrix(ctm);
 
     // Draw all vertices except the sun's vertices
-    //glDrawArrays(GL_TRIANGLES, 0, num_vertices - num_vertices_sun);
+    glDrawArrays(GL_TRIANGLES, 0, num_vertices - num_vertices_sun);
 
     // Draw the sun
+    float sun_scale = 3.0f; // The size of the sun
+    mat4 sun_scaling = scale(sun_scale, sun_scale, sun_scale);
+    mat4 sun_translation = translate(sun_position.x, sun_position.y, sun_position.z);
+    mat4 sun_ctm = mm_multiplication(sun_translation, sun_scaling);
 
     // Apply any global scaling if necessary
-    //mat4 sun_final_ctm = mm_multiplication(final_ctm, sun_ctm);
+    mat4 sun_final_ctm = mm_multiplication(ctm, sun_ctm);
 
     // Send the sun's ctm to the shader
-    //glUniformMatrix4fv(ctm_location, 1, GL_FALSE, (GLfloat *)&sun_final_ctm);
+    glUniformMatrix4fv(ctm_location, 1, GL_FALSE, (GLfloat *)&sun_final_ctm);
 
     // Send the updated model_view matrix to the shader
     
@@ -1081,10 +1207,12 @@ void display(void)
     //projection = frustum(-10, 10, -5, 5, -1, -10);
     glUniformMatrix4fv(projection_location, 1, GL_FALSE, (GLfloat *) &projection);
 
-    // Draw only the sun's vertices
-    //glDrawArrays(GL_TRIANGLES, num_vertices - num_vertices_sun, num_vertices_sun);
+    glUniform4fv(light_position_location, 1, (GLvoid *) &sun_position);
 
-    glDrawArrays(GL_TRIANGLES, 0, num_vertices);
+    // Draw only the sun's vertices
+    glDrawArrays(GL_TRIANGLES, num_vertices - num_vertices_sun, num_vertices_sun);
+
+    //glDrawArrays(GL_TRIANGLES, 0, num_vertices);
 
     glutSwapBuffers();
 }
@@ -1182,6 +1310,49 @@ void keyboard(unsigned char key, int mousex, int mousey) {
     else if (key == 'k') {
         solve_maze_lh(); // Solve the maze via left-hand rule
     }
+    else if (key == 'm') { // zoom out
+        lrbt += 0.1;
+        projection = frustum(-lrbt, lrbt, -lrbt, lrbt, -1, -100);
+        glutPostRedisplay();
+    }
+    else if (key == 'n') { // zoom in
+        lrbt -= 0.1;
+        projection = frustum(-lrbt, lrbt, -lrbt, lrbt, -1, -100);
+        glutPostRedisplay();
+    }
+    else if (key == 'l') {
+        if(enable_light == 0) enable_light = 1;
+        else enable_light = 0;
+        glUniform1i(enable_light_location, enable_light);
+        glutPostRedisplay();
+    }
+    else if (key == '7') {
+        if(ambient_light == 0) ambient_light = 1;
+        else ambient_light = 0;
+        glUniform1i(ambient_light_location, ambient_light);
+        glutPostRedisplay();
+    }
+    else if (key == '8') {
+        if(diffuse_light == 0) diffuse_light = 1;
+        else diffuse_light = 0;
+        glUniform1i(diffuse_light_location, diffuse_light);
+        glutPostRedisplay();
+    }
+    else if (key == '9') {
+        if(specular_light == 0) specular_light = 1;
+        else specular_light = 0;
+        glUniform1i(specular_light_location, specular_light);
+        glutPostRedisplay();
+    }
+    else if (key == '0') {
+        ambient_light = 0;
+        diffuse_light = 0;
+        specular_light = 0;
+        glUniform1i(ambient_light_location, ambient_light);
+        glUniform1i(diffuse_light_location, diffuse_light);
+        glUniform1i(specular_light_location, specular_light);
+        glutPostRedisplay();
+    }
 } 
 
 void mouse(int button, int state, int x, int y) {
@@ -1223,13 +1394,51 @@ void motion(int x, int y) {
             isnan(final_point.x) || isnan(final_point.y) || isnan(final_point.z)) {
             return;
         }
-        create_rotation();
+        //create_rotation();
+        vec4 u = {initial_point.x, initial_point.y, initial_point.z, 0.0f};
+        vec4 v = {final_point.x, final_point.y, final_point.z, 0.0f};
 
-        // Update the current transformation matrix by applying the incremental rotation
-        ctm = mm_multiplication(rotation_matrix, prev_ctm);
+        normalize(u);
+        normalize(v);
 
-        // Update previous_point for the next motion event
-        previous_point = final_point;
+        // Calculate dot product and clamp between -1 and 1
+        float dt = dot_product(u, v);
+        float theta_z = acos(dt) * 180.0f / M_PI;
+
+        // Calculate the rotation axis
+        vec4 rotation_axis = cross_product(u, v);
+        rotation_axis = normalize(rotation_axis);
+
+        float distance = sqrt(rotation_axis.y * rotation_axis.y + rotation_axis.z * rotation_axis.z);
+        if(distance != 0){
+            float sin_theta_x = rotation_axis.y / distance;
+            float cos_theta_x = rotation_axis.z / distance;
+
+            mat4 pos_rx = {{1, 0, 0, 0}, {0, cos_theta_x, sin_theta_x, 0}, {0, -sin_theta_x, cos_theta_x, 0}, {0, 0, 0, 1}};
+            mat4 neg_rx = m_transpose(pos_rx);
+
+            float sin_theta_y = rotation_axis.x;
+            float cos_theta_y = distance;
+
+            mat4 neg_ry = {{cos_theta_y, 0, sin_theta_y, 0}, {0, 1, 0, 0}, {-sin_theta_y, 0, cos_theta_y, 0}, {0, 0, 0, 1}};
+            mat4 pos_ry = m_transpose(neg_ry);
+
+            // Final rotation matrix calculation
+            mat4 m1 = mm_multiplication(neg_ry, pos_rx);
+            mat4 m2 = mm_multiplication(rotate_z(theta_z), m1);
+            mat4 m3 = mm_multiplication(pos_ry, m2);
+            mat4 m4 = mm_multiplication(neg_rx, m3);
+            
+            rotation_matrix = m4;
+            // Update the current transformation matrix by applying the incremental rotation
+            //print_matrix(rotation_matrix);
+            ctm = mm_multiplication(rotation_matrix, prev_ctm);
+
+            // Update previous_point for the next motion event
+            previous_point = final_point;
+        }
+
+        
     }
     glutPostRedisplay();
 }
@@ -1238,8 +1447,11 @@ void special(int key, int x, int y) {
     if(key == GLUT_KEY_UP){
         //step_counter = 0;
         //is_animating = 1;
-        forward();
-        print_location();
+        //forward();
+        lateral_animation_vec = vv_subtraction((vec4) {eye_x, 2, eye_z - 2.0, 1}, (vec4) {eye_x, 2, eye_z, 1});
+        forward_animation = 1;
+        is_animating = 1;
+        //print_location();
     }
     else if(key == GLUT_KEY_DOWN){
         backward();
@@ -1522,6 +1734,14 @@ void slide_right() {
     }
     model_view = look_at((vec4){eye_x, 2, eye_z, 1}, (vec4){at_x, 2, at_z, 1}, (vec4){0, 1, 0, 0});
     glutPostRedisplay();
+
+    /*
+    mat4 rot = rotate_y((-90.0 * 180.0) / M_PI);
+    vec4 v1 = mv_multiplication(translate(-eye_x, -2, -eye_z), (vec4) {at_x, 2, at_z, 1.0});
+    vec4 v2 = mv_multiplication(rot, v1);
+    vec4 v3 = mv_multiplication(translate(eye_x, 2, eye_z), v2);
+    model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, v3, (vec4) {0, 1, 0, 0});
+    */
 }
 
 /*
