@@ -999,41 +999,46 @@ void resetPlatform() {
 }
 
 void solve_maze_lh() {
+    //when user is outside maze
+    if (!inside_maze) {
+        // if outside, turn to face north and move forward into the maze
+        while (direction != 0) {
+            turn_left();
+        }
+        forward();
+    }
+
     // While the player is not at the maze exit
     while (!(player_row == 0 && player_col == maze_x_size - 1)) {
-        // Try to turn left and move
-        turn_left(); // Turn left
-        if (can_move_inside_maze(player_row, player_col, direction)) {
-            forward(); // Move forward after turning left
+        // Check if there's an open wall on the left
+        int left_direction = (direction + 3) % 4; // Direction to the left
+        
+        if (can_move_inside_maze(player_row, player_col, left_direction)) {
+            // Turn left and move through the open wall
+            turn_left();
+            forward();
+        } else if (can_move_inside_maze(player_row, player_col, direction)) {
+            // If moving left isn't possible, move forward
+            forward();
         } else {
-            // Turn back to the original direction
-            turn_right(); // Undo the left turn
+            // If forward is blocked, try turning right
+            turn_right();
             if (can_move_inside_maze(player_row, player_col, direction)) {
-                forward(); // Move forward
+                forward();
             } else {
-                // Try to turn right and move
-                turn_right(); // Turn right
-                if (can_move_inside_maze(player_row, player_col, direction)) {
-                    forward(); // Move forward after turning right
-                } else {
-                    // Backtrack (turn around)
-                    turn_right(); // Turn right again (180 degrees from original)
-                    forward();    // Move backward
-                }
+                // If right is also blocked, turn around and backtrack
+                turn_right(); // Complete 180-degree turn
+                forward();
             }
         }
         // Update the display
         glutPostRedisplay();
     }
 
-    // At the end of the maze, turn left one more time
     turn_left();
-
-    // Maze is solved
-    printf("Maze solved!\n");
-    glutPostRedisplay(); 
-} 
-
+    forward();
+    glutPostRedisplay();
+}
 
 void display(void)
 {
