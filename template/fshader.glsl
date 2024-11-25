@@ -5,16 +5,19 @@ varying vec4 color;
 varying vec4 N, V, L, H;
 
 uniform sampler2D texture;
-uniform int enable_light, ambient_light, diffuse_light, specular_light, no_light;
+uniform int enable_light, ambient_light, diffuse_light, specular_light, no_light, flashlight;
 
 vec4 ambient, diffuse, specular;
 
+uniform vec4 look_direction;
+
 void main()
 {
+	vec4 the_color = texture2D(texture, texCoord);
+	vec4 NN = normalize(N);
+	vec4 LL = normalize(L);
+
 	if(enable_light == 1){
-		vec4 the_color = texture2D(texture, texCoord);
-		vec4 NN = normalize(N);
-		vec4 LL = normalize(L);
 		vec4 VV = normalize(V);
 		vec4 HH = normalize(H);
 		ambient = 0.3 * the_color;
@@ -32,8 +35,15 @@ void main()
 		
 		//gl_FragColor = ambient + diffuse + specular;
 	}
+	else if(flashlight == 1){
+		//vec4 DD = normalize(vec4(0, 0, -1, 0));
+		vec4 DD = normalize(look_direction);
+		ambient = 0.1 * the_color;
+		diffuse = pow(-dot(LL, DD), 80) * the_color;
+		//diffuse = pow(-dot(LL, DD), 80) * vec4(1, 1, 1, 1) * the_color;
+		gl_FragColor = ambient + diffuse;
+	}
 	else{
 		gl_FragColor = texture2D(texture, texCoord);
 	}
-	
 }

@@ -64,6 +64,10 @@ float eye_z = 0.0;
 float at_x = 0.0;
 float at_y = 0.0;
 float at_z = 0.0;
+vec4 eye;
+vec4 at;
+vec4 up = {0, 1, 0, 0};
+GLuint user_position_location;
 
 //cube and platform global variables
 float scale_cube = 1.00f;
@@ -116,6 +120,10 @@ GLuint specular_light_location;
 int specular_light = 1;
 GLuint no_light_location;
 int no_light = 0;
+GLuint flashlight_location;
+int flashlight = 0;
+GLuint look_direction_location;
+vec4 look_direction;
 
 // Animation globals
 int is_animating = 0; // Animation state
@@ -639,6 +647,13 @@ void init(void)
     display_maze(maze_x_size, maze_z_size);
     display_sun();
 
+    //model_view = look_at((vec4) {0, 0, maze_z_size * 3, 1}, (vec4) {0, 0, maze_z_size * 3 - 1, 1}, (vec4) {0, 1, 0, 0});
+    eye = (vec4) {0, 0, maze_z_size * 3, 1};
+    at = (vec4) {0, 0, maze_z_size * 3 - 1, 1};
+
+    model_view = look_at(eye, at, up);
+    projection = frustum(-0.6, 0.6, -0.6, 0.6, -1, -100);
+
     normals = (vec4 *) malloc(sizeof(vec4) * num_vertices);
     for(int i = 0; i < num_vertices; i += 36){
         for(int j = 0; j < 36; j++){
@@ -722,15 +737,15 @@ void init(void)
     GLuint texture_location = glGetUniformLocation(program, "texture");
     glUniform1i(texture_location, 0);
 
-    model_view = look_at((vec4) {0, 0, maze_z_size * 3, 1}, (vec4) {0, 0, maze_z_size * 3 - 1, 1}, (vec4) {0, 1, 0, 0});
-    projection = frustum(-1, 1, -1, 1, -1, -200);
-
     ctm_location = glGetUniformLocation(program, "ctm");
     model_view_location = glGetUniformLocation(program, "model_view");
     projection_location = glGetUniformLocation(program, "projection");
 
     light_position_location = glGetUniformLocation(program, "light_position");
     glUniform4fv(light_position_location, 1, (GLvoid *) &sun_position);
+
+    user_position_location = glGetUniformLocation(program, "user_position");
+    glUniform4fv(user_position_location, 1, (GLvoid *) &eye);
 
     enable_light_location = glGetUniformLocation(program, "enable_light");
     glUniform1i(enable_light_location, enable_light);
@@ -742,6 +757,10 @@ void init(void)
     glUniform1i(specular_light_location, specular_light);
     no_light_location = glGetUniformLocation(program, "no_light");
     glUniform1i(no_light_location, no_light);
+    flashlight_location = glGetUniformLocation(program, "flashlight");
+    glUniform1i(flashlight_location, flashlight);
+    look_direction_location = glGetUniformLocation(program, "look_direction");
+    glUniform4fv(look_direction_location, 1, (GLvoid *) &look_direction);
 
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.0, 0.0, 0.0, 1.0);
@@ -1178,10 +1197,60 @@ void idle() {
             }
         }       
         else if(look_left_animation){
-            
+            if (num_steps > max_steps) {
+                // end animation
+                is_animating = 0;
+                look_left_animation = 0;
+
+                // finalize values
+                //eye_x = target_eye_x;
+                //eye_z = target_eye_z;
+                at_x = target_at_x;
+                at_z = target_at_z;
+
+                num_steps = 0;
+            } else {
+                float alpha = (float)num_steps / max_steps;
+
+                //float new_eye_x = (1 - alpha) * eye_x + alpha * target_eye_x;
+                //float new_eye_z = (1 - alpha) * eye_z + alpha * target_eye_z;
+                float new_at_x = (1 - alpha) * at_x + alpha * target_at_x;
+                float new_at_z = (1 - alpha) * at_z + alpha * target_at_z;
+
+                model_view = look_at((vec4){eye_x, 2, eye_z, 1}, 
+                                     (vec4){new_at_x, 2, new_at_z, 1}, 
+                                     (vec4){0, 1, 0, 0});
+
+                num_steps++;
+            }
         }
         else if(look_right_animation){
-            
+            if (num_steps > max_steps) {
+                // end animation
+                is_animating = 0;
+                look_right_animation = 0;
+
+                // finalize values
+                //eye_x = target_eye_x;
+                //eye_z = target_eye_z;
+                at_x = target_at_x;
+                at_z = target_at_z;
+
+                num_steps = 0;
+            } else {
+                float alpha = (float)num_steps / max_steps;
+
+                //float new_eye_x = (1 - alpha) * eye_x + alpha * target_eye_x;
+                //float new_eye_z = (1 - alpha) * eye_z + alpha * target_eye_z;
+                float new_at_x = (1 - alpha) * at_x + alpha * target_at_x;
+                float new_at_z = (1 - alpha) * at_z + alpha * target_at_z;
+
+                model_view = look_at((vec4){eye_x, 2, eye_z, 1}, 
+                                     (vec4){new_at_x, 2, new_at_z, 1}, 
+                                     (vec4){0, 1, 0, 0});
+
+                num_steps++;
+            }
         }
     }
     // Process next queued movement if not animating
@@ -1332,6 +1401,8 @@ void display(void)
     glUniformMatrix4fv(projection_location, 1, GL_FALSE, (GLfloat *) &projection);
 
     glUniform4fv(light_position_location, 1, (GLvoid *) &sun_position);
+    glUniform4fv(user_position_location, 1, (GLvoid *) &eye);
+    glUniform4fv(look_direction_location, 1, (GLvoid *) &look_direction);
 
     // Draw only the sun's vertices
     glDrawArrays(GL_TRIANGLES, num_vertices - num_vertices_sun, num_vertices_sun);
@@ -1406,6 +1477,14 @@ void keyboard(unsigned char key, int mousex, int mousey) {
         eye_z = maze_z_size + 1;
         at_z = maze_z_size;
 
+        eye.x = -maze_x_size + 1;
+        eye.y = 2;
+        eye.z = maze_z_size + 1;
+
+        at.x = -maze_x_size + 1;
+        at.y = 2;
+        at.z = maze_z_size;
+
         // quinn code: init player position tracking outside maze 
         player_row = maze_z_size - 1; // entrance row
         player_col = 0;               // entrance column
@@ -1413,8 +1492,11 @@ void keyboard(unsigned char key, int mousex, int mousey) {
         inside_maze = false;          // player is outside
         exit_direction = 2;           // bc we outside the entrance, exit direction is south
 
+        look_direction = (vec4) {at.x, at.y, at.z, 0};
+        model_view = look_at(eye, at, up);
+
         projection = frustum(-.75, .75, -.75, .75, -1, -200); 
-        model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+        //model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
         glutPostRedisplay();
         print_location();
     }
@@ -1436,7 +1518,9 @@ void keyboard(unsigned char key, int mousex, int mousey) {
     else if (key == 'l') {
         if(enable_light == 0) enable_light = 1;
         else enable_light = 0;
+        flashlight = 0;
         glUniform1i(enable_light_location, enable_light);
+        glUniform1i(flashlight_location, flashlight);
         glutPostRedisplay();
     }
     else if (key == '7') {
@@ -1466,6 +1550,15 @@ void keyboard(unsigned char key, int mousex, int mousey) {
         glUniform1i(specular_light_location, specular_light);
         glutPostRedisplay();
     }
+    else if (key == 's') {
+        if(flashlight == 0) flashlight = 1;
+        else flashlight = 0;
+        enable_light = 0;
+        look_direction = (vec4) {at.x, at.y, at.z, 0};
+        glUniform1i(flashlight_location, flashlight);
+        glUniform1i(enable_light_location, enable_light);
+        glutPostRedisplay();
+    }
 } 
 
 void mouse(int button, int state, int x, int y) {
@@ -1474,10 +1567,20 @@ void mouse(int button, int state, int x, int y) {
             dragging = 1;
             has_moved = 0;
             initial_point = map_coords(x, y);
+            look_direction.x = initial_point.x;
+            look_direction.y = initial_point.y;
+            look_direction.z = -1;
+            look_direction.w = 0;
             previous_point = initial_point;
             prev_ctm = ctm; // Store the current transformation matrix
+            glutPostRedisplay();
         } else if (state == GLUT_UP) {
             dragging = 0;
+            look_direction.x = 0;
+            look_direction.y = 0;
+            look_direction.z = -1;
+            look_direction.w = 0;
+            glutPostRedisplay();
         }
     }
 }
@@ -1498,57 +1601,65 @@ vec4 map_coords(int x, int y){
 
 void motion(int x, int y) {
     if (dragging) {
-        has_moved = 1;
-        // Map the new mouse position
-        final_point = map_coords(x, y);
+        if(flashlight == 0){
+            has_moved = 1;
+            // Map the new mouse position
+            final_point = map_coords(x, y);
 
-        // Check for NaN in initial_point or final_point
-        if (isnan(initial_point.x) || isnan(initial_point.y) || isnan(initial_point.z) ||
-            isnan(final_point.x) || isnan(final_point.y) || isnan(final_point.z)) {
-            return;
+            // Check for NaN in initial_point or final_point
+            if (isnan(initial_point.x) || isnan(initial_point.y) || isnan(initial_point.z) ||
+                isnan(final_point.x) || isnan(final_point.y) || isnan(final_point.z)) {
+                return;
+            }
+            //create_rotation();
+            vec4 u = {initial_point.x, initial_point.y, initial_point.z, 0.0f};
+            vec4 v = {final_point.x, final_point.y, final_point.z, 0.0f};
+
+            normalize(u);
+            normalize(v);
+
+            // Calculate dot product and clamp between -1 and 1
+            float dt = dot_product(u, v);
+            float theta_z = acos(dt) * 180.0f / M_PI;
+
+            // Calculate the rotation axis
+            vec4 rotation_axis = cross_product(u, v);
+            rotation_axis = normalize(rotation_axis);
+
+            float distance = sqrt(rotation_axis.y * rotation_axis.y + rotation_axis.z * rotation_axis.z);
+            if(distance != 0){
+                float sin_theta_x = rotation_axis.y / distance;
+                float cos_theta_x = rotation_axis.z / distance;
+
+                mat4 pos_rx = {{1, 0, 0, 0}, {0, cos_theta_x, sin_theta_x, 0}, {0, -sin_theta_x, cos_theta_x, 0}, {0, 0, 0, 1}};
+                mat4 neg_rx = m_transpose(pos_rx);
+
+                float sin_theta_y = rotation_axis.x;
+                float cos_theta_y = distance;
+
+                mat4 neg_ry = {{cos_theta_y, 0, sin_theta_y, 0}, {0, 1, 0, 0}, {-sin_theta_y, 0, cos_theta_y, 0}, {0, 0, 0, 1}};
+                mat4 pos_ry = m_transpose(neg_ry);
+
+                // Final rotation matrix calculation
+                mat4 m1 = mm_multiplication(neg_ry, pos_rx);
+                mat4 m2 = mm_multiplication(rotate_z(theta_z), m1);
+                mat4 m3 = mm_multiplication(pos_ry, m2);
+                mat4 m4 = mm_multiplication(neg_rx, m3);
+                
+                rotation_matrix = m4;
+                // Update the current transformation matrix by applying the incremental rotation
+                //print_matrix(rotation_matrix);
+                ctm = mm_multiplication(rotation_matrix, prev_ctm);
+
+                // Update previous_point for the next motion event
+                previous_point = final_point;
+            }
         }
-        //create_rotation();
-        vec4 u = {initial_point.x, initial_point.y, initial_point.z, 0.0f};
-        vec4 v = {final_point.x, final_point.y, final_point.z, 0.0f};
-
-        normalize(u);
-        normalize(v);
-
-        // Calculate dot product and clamp between -1 and 1
-        float dt = dot_product(u, v);
-        float theta_z = acos(dt) * 180.0f / M_PI;
-
-        // Calculate the rotation axis
-        vec4 rotation_axis = cross_product(u, v);
-        rotation_axis = normalize(rotation_axis);
-
-        float distance = sqrt(rotation_axis.y * rotation_axis.y + rotation_axis.z * rotation_axis.z);
-        if(distance != 0){
-            float sin_theta_x = rotation_axis.y / distance;
-            float cos_theta_x = rotation_axis.z / distance;
-
-            mat4 pos_rx = {{1, 0, 0, 0}, {0, cos_theta_x, sin_theta_x, 0}, {0, -sin_theta_x, cos_theta_x, 0}, {0, 0, 0, 1}};
-            mat4 neg_rx = m_transpose(pos_rx);
-
-            float sin_theta_y = rotation_axis.x;
-            float cos_theta_y = distance;
-
-            mat4 neg_ry = {{cos_theta_y, 0, sin_theta_y, 0}, {0, 1, 0, 0}, {-sin_theta_y, 0, cos_theta_y, 0}, {0, 0, 0, 1}};
-            mat4 pos_ry = m_transpose(neg_ry);
-
-            // Final rotation matrix calculation
-            mat4 m1 = mm_multiplication(neg_ry, pos_rx);
-            mat4 m2 = mm_multiplication(rotate_z(theta_z), m1);
-            mat4 m3 = mm_multiplication(pos_ry, m2);
-            mat4 m4 = mm_multiplication(neg_rx, m3);
-            
-            rotation_matrix = m4;
-            // Update the current transformation matrix by applying the incremental rotation
-            //print_matrix(rotation_matrix);
-            ctm = mm_multiplication(rotation_matrix, prev_ctm);
-
-            // Update previous_point for the next motion event
-            previous_point = final_point;
+        else{
+            look_direction.x = (x * 2.0 / 511.0) - 1;
+            look_direction.y = -((y * 2.0 / 511.0) - 1);
+            look_direction.z = -1;
+            look_direction.w = 0;
         }
 
         
@@ -2005,6 +2116,16 @@ void slide_right() {
 void turn_left(){
     direction = (direction + 3) % 4; // updates player direction counterclockwise THIS NEEDS TO BE HERE
 
+    vec4 at_prime = mv_multiplication(translate(-eye_x, -2, -eye_z), (vec4) {at_x, 2, at_z, 1});
+    vec4 at_prime_2 = mv_multiplication(rotate_y(90), at_prime);
+    vec4 target_at = mv_multiplication(translate(eye_x, 2, eye_z), at_prime_2);
+    target_at_x = target_at.x;
+    target_at_z = target_at.z;
+    //model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, new_at, (vec4) {0, 1, 0, 0});
+    look_left_animation = 1;
+    num_steps = 0;
+    is_animating = 1;
+/*
     if (direction == 0) { // facing North
         at_x = eye_x;
         at_z = eye_z - 1;
@@ -2021,11 +2142,22 @@ void turn_left(){
     model_view = look_at((vec4){eye_x, 2, eye_z, 1}, (vec4){at_x, 2, at_z, 1}, (vec4){0, 1, 0, 0});
     //model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
     glutPostRedisplay();
+    */
 }
 
 void turn_right(){
     direction = (direction + 1) % 4; //updates player direction clockwise THIS NEEDS TO BE HERE
-
+    
+    vec4 at_prime = mv_multiplication(translate(-eye_x, -2, -eye_z), (vec4) {at_x, 2, at_z, 1});
+    vec4 at_prime_2 = mv_multiplication(rotate_y(-90), at_prime);
+    vec4 target_at = mv_multiplication(translate(eye_x, 2, eye_z), at_prime_2);
+    target_at_x = target_at.x;
+    target_at_z = target_at.z;
+    //model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, new_at, (vec4) {0, 1, 0, 0});
+    look_right_animation = 1;
+    num_steps = 0;
+    is_animating = 1;
+/*
     if (direction == 0) { // facing North
         at_x = eye_x;
         at_z = eye_z - 1;
@@ -2040,7 +2172,7 @@ void turn_right(){
         at_z = eye_z;
     }
     model_view = look_at((vec4){eye_x, 2, eye_z, 1}, (vec4){at_x, 2, at_z, 1}, (vec4){0, 1, 0, 0});
-    /*
+    
     mat4 rot = rotate_y((-90.0 * 180.0) / M_PI);
     vec4 new_at_point = mv_multiplication(rot, (vec4) {at_x, 2, at_z, 1});
     //mat4 tran = translate(0, 0, 0);
@@ -2053,7 +2185,6 @@ void turn_right(){
     model_view = m3;
     //model_view = mm_multiplication(look_at((vec4) {eye_x, 2, eye_z, 1}, new_at_point, (vec4) {0, 1, 0, 0}), m3);
     */
-    glutPostRedisplay();
     
 }
 

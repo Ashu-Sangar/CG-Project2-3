@@ -14,12 +14,16 @@ uniform mat4 model_view;
 uniform mat4 projection;
 
 uniform vec4 light_position;
+uniform vec4 user_position;
+
+uniform int flashlight;
 
 void main()
 {
 	
 	N = normalize(model_view * ctm * vNormal);
-    L = normalize(model_view * (light_position - ctm * vPosition));
+    if(flashlight == 0) L = normalize(model_view * (light_position - ctm * vPosition));
+	else L = normalize(model_view * (user_position - ctm * vPosition));
     V = normalize(vec4(0, 0, 0, 1) - model_view * ctm * vPosition);
 	H = normalize(L + V);
 	
