@@ -140,6 +140,10 @@ float eye_target = 0.0;
 vec4 lateral_animation_vec;
 float target_eye_x, target_eye_z;
 float target_at_x, target_at_z;
+float new_eye_x, new_eye_z;
+float new_at_x, new_at_z;
+vec4 temp_eye;
+vec4 temp_at;
 
 // gonna make the maze using a 2d array of structs
 typedef struct {
@@ -652,7 +656,7 @@ void init(void)
     at = (vec4) {0, 0, maze_z_size * 3 - 1, 1};
 
     model_view = look_at(eye, at, up);
-    projection = frustum(-0.6, 0.6, -0.6, 0.6, -1, -100);
+    projection = frustum(-0.75, 0.75, -0.75, 0.75, -1, -100);
 
     normals = (vec4 *) malloc(sizeof(vec4) * num_vertices);
     for(int i = 0; i < num_vertices; i += 36){
@@ -1089,23 +1093,25 @@ void idle() {
                 forward_animation = 0;
 
                 // finalize values
-                eye_x = target_eye_x;
-                eye_z = target_eye_z;
-                at_x = target_at_x;
-                at_z = target_at_z;
+                eye.x = target_eye_x;
+                eye.z = target_eye_z;
+                at.x = target_at_x;
+                at.z = target_at_z;
 
                 num_steps = 0;
             } else {
                 //tried to replicate what was described on the project page
                 float alpha = (float)num_steps / max_steps;
 
-                float new_eye_x = (1 - alpha) * eye_x + alpha * target_eye_x;
-                float new_eye_z = (1 - alpha) * eye_z + alpha * target_eye_z;
-                float new_at_x = (1 - alpha) * at_x + alpha * target_at_x;
-                float new_at_z = (1 - alpha) * at_z + alpha * target_at_z;
+                temp_eye.x = (1 - alpha) * eye.x + alpha * target_eye_x;
+                temp_eye.y = 2;
+                temp_eye.z = (1 - alpha) * eye.z + alpha * target_eye_z;
+                temp_eye.w = 1;
+                new_at_x = (1 - alpha) * at.x + alpha * target_at_x;
+                new_at_z = (1 - alpha) * at.z + alpha * target_at_z;
 
                 // update model_view matrix
-                model_view = look_at((vec4){new_eye_x, 2, new_eye_z, 1}, 
+                model_view = look_at(temp_eye, 
                                      (vec4){new_at_x, 2, new_at_z, 1}, 
                                      (vec4){0, 1, 0, 0});
 
@@ -1119,21 +1125,24 @@ void idle() {
                 backward_animation = 0;
 
                 // finalize values
-                eye_x = target_eye_x;
-                eye_z = target_eye_z;
-                at_x = target_at_x;
-                at_z = target_at_z;
+                eye.x = target_eye_x;
+                eye.z = target_eye_z;
+                at.x = target_at_x;
+                at.z = target_at_z;
 
                 num_steps = 0;
             } else {
                 float alpha = (float)num_steps / max_steps;
 
-                float new_eye_x = (1 - alpha) * eye_x + alpha * target_eye_x;
-                float new_eye_z = (1 - alpha) * eye_z + alpha * target_eye_z;
-                float new_at_x = (1 - alpha) * at_x + alpha * target_at_x;
-                float new_at_z = (1 - alpha) * at_z + alpha * target_at_z;
+                temp_eye.x = (1 - alpha) * eye.x + alpha * target_eye_x;
+                temp_eye.y = 2;
+                temp_eye.z = (1 - alpha) * eye.z + alpha * target_eye_z;
+                temp_eye.w = 1;
+                new_at_x = (1 - alpha) * at.x + alpha * target_at_x;
+                new_at_z = (1 - alpha) * at.z + alpha * target_at_z;
 
-                model_view = look_at((vec4){new_eye_x, 2, new_eye_z, 1}, 
+                // update model_view matrix
+                model_view = look_at(temp_eye, 
                                      (vec4){new_at_x, 2, new_at_z, 1}, 
                                      (vec4){0, 1, 0, 0});
 
@@ -1147,21 +1156,24 @@ void idle() {
                 slide_left_animation = 0;
 
                 // finalize values
-                eye_x = target_eye_x;
-                eye_z = target_eye_z;
-                at_x = target_at_x;
-                at_z = target_at_z;
+                eye.x = target_eye_x;
+                eye.z = target_eye_z;
+                at.x = target_at_x;
+                at.z = target_at_z;
 
                 num_steps = 0;
             } else {
                 float alpha = (float)num_steps / max_steps;
 
-                float new_eye_x = (1 - alpha) * eye_x + alpha * target_eye_x;
-                float new_eye_z = (1 - alpha) * eye_z + alpha * target_eye_z;
-                float new_at_x = (1 - alpha) * at_x + alpha * target_at_x;
-                float new_at_z = (1 - alpha) * at_z + alpha * target_at_z;
+                temp_eye.x = (1 - alpha) * eye.x + alpha * target_eye_x;
+                temp_eye.y = 2;
+                temp_eye.z = (1 - alpha) * eye.z + alpha * target_eye_z;
+                temp_eye.w = 1;
+                new_at_x = (1 - alpha) * at.x + alpha * target_at_x;
+                new_at_z = (1 - alpha) * at.z + alpha * target_at_z;
 
-                model_view = look_at((vec4){new_eye_x, 2, new_eye_z, 1}, 
+                // update model_view matrix
+                model_view = look_at(temp_eye, 
                                      (vec4){new_at_x, 2, new_at_z, 1}, 
                                      (vec4){0, 1, 0, 0});
 
@@ -1175,21 +1187,24 @@ void idle() {
                 slide_right_animation = 0;
 
                 // finalize values
-                eye_x = target_eye_x;
-                eye_z = target_eye_z;
-                at_x = target_at_x;
-                at_z = target_at_z;
+                eye.x = target_eye_x;
+                eye.z = target_eye_z;
+                at.x = target_at_x;
+                at.z = target_at_z;
 
                 num_steps = 0;
             } else {
                 float alpha = (float)num_steps / max_steps;
 
-                float new_eye_x = (1 - alpha) * eye_x + alpha * target_eye_x;
-                float new_eye_z = (1 - alpha) * eye_z + alpha * target_eye_z;
-                float new_at_x = (1 - alpha) * at_x + alpha * target_at_x;
-                float new_at_z = (1 - alpha) * at_z + alpha * target_at_z;
+                temp_eye.x = (1 - alpha) * eye.x + alpha * target_eye_x;
+                temp_eye.y = 2;
+                temp_eye.z = (1 - alpha) * eye.z + alpha * target_eye_z;
+                temp_eye.w = 1;
+                new_at_x = (1 - alpha) * at.x + alpha * target_at_x;
+                new_at_z = (1 - alpha) * at.z + alpha * target_at_z;
 
-                model_view = look_at((vec4){new_eye_x, 2, new_eye_z, 1}, 
+                // update model_view matrix
+                model_view = look_at(temp_eye, 
                                      (vec4){new_at_x, 2, new_at_z, 1}, 
                                      (vec4){0, 1, 0, 0});
 
@@ -1203,21 +1218,21 @@ void idle() {
                 look_left_animation = 0;
 
                 // finalize values
-                //eye_x = target_eye_x;
-                //eye_z = target_eye_z;
-                at_x = target_at_x;
-                at_z = target_at_z;
+                //eye.x = target_eye_x;
+                //eye.z = target_eye_z;
+                at.x = target_at_x;
+                at.z = target_at_z;
 
                 num_steps = 0;
             } else {
                 float alpha = (float)num_steps / max_steps;
 
-                //float new_eye_x = (1 - alpha) * eye_x + alpha * target_eye_x;
-                //float new_eye_z = (1 - alpha) * eye_z + alpha * target_eye_z;
-                float new_at_x = (1 - alpha) * at_x + alpha * target_at_x;
-                float new_at_z = (1 - alpha) * at_z + alpha * target_at_z;
+                //float new_eye_x = (1 - alpha) * eye.x + alpha * target_eye_x;
+                //float new_eye_z = (1 - alpha) * eye.z + alpha * target_eye_z;
+                new_at_x = (1 - alpha) * at.x + alpha * target_at_x;
+                new_at_z = (1 - alpha) * at.z + alpha * target_at_z;
 
-                model_view = look_at((vec4){eye_x, 2, eye_z, 1}, 
+                model_view = look_at((vec4){eye.x, 2, eye.z, 1}, 
                                      (vec4){new_at_x, 2, new_at_z, 1}, 
                                      (vec4){0, 1, 0, 0});
 
@@ -1231,21 +1246,21 @@ void idle() {
                 look_right_animation = 0;
 
                 // finalize values
-                //eye_x = target_eye_x;
-                //eye_z = target_eye_z;
-                at_x = target_at_x;
-                at_z = target_at_z;
+                //eye.x = target_eye_x;
+                //eye.z = target_eye_z;
+                at.x = target_at_x;
+                at.z = target_at_z;
 
                 num_steps = 0;
             } else {
                 float alpha = (float)num_steps / max_steps;
 
-                //float new_eye_x = (1 - alpha) * eye_x + alpha * target_eye_x;
-                //float new_eye_z = (1 - alpha) * eye_z + alpha * target_eye_z;
-                float new_at_x = (1 - alpha) * at_x + alpha * target_at_x;
-                float new_at_z = (1 - alpha) * at_z + alpha * target_at_z;
+                //float new_eye_x = (1 - alpha) * eye.x + alpha * target_eye_x;
+                //float new_eye_z = (1 - alpha) * eye.z + alpha * target_eye_z;
+                new_at_x = (1 - alpha) * at.x + alpha * target_at_x;
+                new_at_z = (1 - alpha) * at.z + alpha * target_at_z;
 
-                model_view = look_at((vec4){eye_x, 2, eye_z, 1}, 
+                model_view = look_at((vec4){eye.x, 2, eye.z, 1}, 
                                      (vec4){new_at_x, 2, new_at_z, 1}, 
                                      (vec4){0, 1, 0, 0});
 
@@ -1401,7 +1416,8 @@ void display(void)
     glUniformMatrix4fv(projection_location, 1, GL_FALSE, (GLfloat *) &projection);
 
     glUniform4fv(light_position_location, 1, (GLvoid *) &sun_position);
-    glUniform4fv(user_position_location, 1, (GLvoid *) &eye);
+    if(forward_animation || backward_animation || slide_left_animation || slide_right_animation) glUniform4fv(user_position_location, 1, (GLvoid *) &temp_eye);
+    else glUniform4fv(user_position_location, 1, (GLvoid *) &eye);
     glUniform4fv(look_direction_location, 1, (GLvoid *) &look_direction);
 
     // Draw only the sun's vertices
@@ -1472,10 +1488,10 @@ void keyboard(unsigned char key, int mousex, int mousey) {
         glutPostRedisplay();
     }
     else if (key == 'f') { // Go to start of maze
-        eye_x = -maze_x_size + 1;
-        at_x = -maze_x_size + 1;
-        eye_z = maze_z_size + 1;
-        at_z = maze_z_size;
+        eye.x = -maze_x_size + 1;
+        at.x = -maze_x_size + 1;
+        eye.z = maze_z_size + 1;
+        at.z = maze_z_size;
 
         eye.x = -maze_x_size + 1;
         eye.y = 2;
@@ -1496,7 +1512,7 @@ void keyboard(unsigned char key, int mousex, int mousey) {
         model_view = look_at(eye, at, up);
 
         projection = frustum(-.75, .75, -.75, .75, -1, -200); 
-        //model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+        //model_view = look_at((vec4) {eye.x, 2, eye.z, 1}, (vec4) {at.x, 2, at.z, 1}, (vec4) {0, 1, 0, 0});
         glutPostRedisplay();
         print_location();
     }
@@ -1586,9 +1602,9 @@ void mouse(int button, int state, int x, int y) {
 }
 
 void print_location(){
-    printf("\nX: %f\n", eye_x);
+    printf("\nX: %f\n", eye.x);
     printf("Y: 2\n");
-    printf("Z: %f\n", eye_z);
+    printf("Z: %f\n", eye.z);
     printf("\n--------------------------\n");
 }
 
@@ -1854,11 +1870,11 @@ void forward() {
             exit_direction = -1;// reset exit direction
             // move back into maze but dont update player position bc its still saved as if we are still in the maze
             if (direction == 0) { 
-                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
-                target_eye_x = eye_x; target_at_x = at_x; 
+                target_eye_z = eye.z - 2; target_at_z = at.z - 2; 
+                target_eye_x = eye.x; target_at_x = at.x; 
             } else if (direction == 2) { 
-                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
-                target_eye_x = eye_x; target_at_x = at_x; 
+                target_eye_z = eye.z + 2; target_at_z = at.z + 2; 
+                target_eye_x = eye.x; target_at_x = at.x; 
             }
             can_animate = 1;
         }
@@ -1868,11 +1884,11 @@ void forward() {
             (player_row == maze_z_size - 1 && player_col == 0 && direction == 2)) {
             // move depending on entrance or exit
             if (direction == 0) { 
-                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
-                target_eye_x = eye_x; target_at_x = at_x; 
+                target_eye_z = eye.z - 2; target_at_z = at.z - 2; 
+                target_eye_x = eye.x; target_at_x = at.x; 
             } else if (direction == 2) { 
-                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
-                target_eye_x = eye_x; target_at_x = at_x; 
+                target_eye_z = eye.z + 2; target_at_z = at.z + 2; 
+                target_eye_x = eye.x; target_at_x = at.x; 
             }
             inside_maze = false; //dont update player position, but mark that we are outside maze now
             exit_direction = direction; // update exit direction
@@ -1881,20 +1897,20 @@ void forward() {
             // normal movement conditions, just move forward if no wall is blocking
             if (direction == 0) { //north
                 player_row--; 
-                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
-                target_eye_x = eye_x; target_at_x = at_x; 
+                target_eye_z = eye.z - 2; target_at_z = at.z - 2; 
+                target_eye_x = eye.x; target_at_x = at.x; 
             } else if (direction == 1) {  //east
                 player_col++; 
-                target_eye_x = eye_x + 2; target_at_x = at_x + 2; 
-                target_eye_z = eye_z; target_at_z = at_z; 
+                target_eye_x = eye.x + 2; target_at_x = at.x + 2; 
+                target_eye_z = eye.z; target_at_z = at.z; 
             } else if (direction == 2) { //south
                 player_row++; 
-                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
-                target_eye_x = eye_x; target_at_x = at_x; 
+                target_eye_z = eye.z + 2; target_at_z = at.z + 2; 
+                target_eye_x = eye.x; target_at_x = at.x; 
             } else if (direction == 3) { //west
                 player_col--; 
-                target_eye_x = eye_x - 2; target_at_x = at_x - 2; 
-                target_eye_z = eye_z; target_at_z = at_z; 
+                target_eye_x = eye.x - 2; target_at_x = at.x - 2; 
+                target_eye_z = eye.z; target_at_z = at.z; 
             }
             can_animate = 1;
         }
@@ -1923,11 +1939,11 @@ void backward() {
             exit_direction = -1; // reset exit direction
             // move back into maze but dont update player position bc its still saved as if we are still in the maze
             if (direction == 0) {
-                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z + 2; target_at_z = at.z + 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             } else if (direction == 2) {
-                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z - 2; target_at_z = at.z - 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             }
             can_animate = 1;
         }
@@ -1937,11 +1953,11 @@ void backward() {
             (player_row == 0 && player_col == maze_x_size - 1 && direction == 2)) { // leaving thru exit
             // then move depending on entrance or exit
             if (direction == 0) {
-                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z + 2; target_at_z = at.z + 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             } else if (direction == 2) {
-                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z - 2; target_at_z = at.z - 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             }
             inside_maze = false;
             exit_direction = (direction + 2) % 4; // update exit direction to the opposite of current direction (bc if we are facing north(0) and we back up out of the entrance, then our exit direction is 2 bc we were moving in the south(2) direction)
@@ -1950,20 +1966,20 @@ void backward() {
             // normal movement conditions, move if no wall is blocking
             if (direction == 0) { //moving south
                 player_row++; 
-                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z + 2; target_at_z = at.z + 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             } else if (direction == 1) { //moving west
                 player_col--; 
-                target_eye_x = eye_x - 2; target_at_x = at_x - 2; 
-                target_eye_z = eye_z; target_at_z = at_z;
+                target_eye_x = eye.x - 2; target_at_x = at.x - 2; 
+                target_eye_z = eye.z; target_at_z = at.z;
             } else if (direction == 2) { //moving north
                 player_row--; 
-                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z - 2; target_at_z = at.z - 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             } else if (direction == 3) { //moving east
                 player_col++; 
-                target_eye_x = eye_x + 2; target_at_x = at_x + 2; 
-                target_eye_z = eye_z; target_at_z = at_z;
+                target_eye_x = eye.x + 2; target_at_x = at.x + 2; 
+                target_eye_z = eye.z; target_at_z = at.z;
             }
             can_animate = 1;
         }
@@ -1991,11 +2007,11 @@ void slide_left() {
             inside_maze = true;
             exit_direction = -1;
             if (direction == 1) {
-                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z - 2; target_at_z = at.z - 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             } else if (direction == 3) {
-                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z + 2; target_at_z = at.z + 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             }
             can_animate = 1;
         }
@@ -2005,11 +2021,11 @@ void slide_left() {
             (player_row == 0 && player_col == maze_x_size - 1 && direction == 1)) { // leaving thru exit
             // leaving the maze
             if (direction == 1) {
-                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z - 2; target_at_z = at.z - 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             } else if (direction == 3) {
-                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z + 2; target_at_z = at.z + 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             }
             inside_maze = false;
             exit_direction = (direction + 3) % 4; // exit direction is left of current direction
@@ -2018,20 +2034,20 @@ void slide_left() {
             // normal movement conditions, move if no wall is blocking
             if (direction == 0) { //moving west
                 player_col--; 
-                target_eye_x = eye_x - 2; target_at_x = at_x - 2; 
-                target_eye_z = eye_z; target_at_z = at_z;
+                target_eye_x = eye.x - 2; target_at_x = at.x - 2; 
+                target_eye_z = eye.z; target_at_z = at.z;
             } else if (direction == 1) { //moving north
                 player_row--; 
-                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z - 2; target_at_z = at.z - 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             } else if (direction == 2) { //east
                 player_col++; 
-                target_eye_x = eye_x + 2; target_at_x = at_x + 2; 
-                target_eye_z = eye_z; target_at_z = at_z;
+                target_eye_x = eye.x + 2; target_at_x = at.x + 2; 
+                target_eye_z = eye.z; target_at_z = at.z;
             } else if (direction == 3) { //south
                 player_row++; 
-                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z + 2; target_at_z = at.z + 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             }
             can_animate = 1;
         }
@@ -2059,11 +2075,11 @@ void slide_right() {
             inside_maze = true;
             exit_direction = -1;
             if (direction == 1) {
-                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z + 2; target_at_z = at.z + 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             } else if (direction == 3) {
-                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z - 2; target_at_z = at.z - 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             }
             can_animate = 1;
         }
@@ -2073,11 +2089,11 @@ void slide_right() {
             (player_row == 0 && player_col == maze_x_size - 1 && direction == 3)) {
             // Leaving the maze
             if (direction == 1) {
-                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z + 2; target_at_z = at.z + 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             } else if (direction == 3) {
-                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z - 2; target_at_z = at.z - 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             }
             inside_maze = false;
             exit_direction = (direction + 1) % 4; // exit direction is right of current direction
@@ -2086,20 +2102,20 @@ void slide_right() {
             // normal movement conditions, move if no wall is blocking
             if (direction == 0) { //moving east
                 player_col++; 
-                target_eye_x = eye_x + 2; target_at_x = at_x + 2; 
-                target_eye_z = eye_z; target_at_z = at_z;
+                target_eye_x = eye.x + 2; target_at_x = at.x + 2; 
+                target_eye_z = eye.z; target_at_z = at.z;
             } else if (direction == 1) { //moving south
                 player_row++; 
-                target_eye_z = eye_z + 2; target_at_z = at_z + 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z + 2; target_at_z = at.z + 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             } else if (direction == 2) { //moving west
                 player_col--; 
-                target_eye_x = eye_x - 2; target_at_x = at_x - 2; 
-                target_eye_z = eye_z; target_at_z = at_z;
+                target_eye_x = eye.x - 2; target_at_x = at.x - 2; 
+                target_eye_z = eye.z; target_at_z = at.z;
             } else if (direction == 3) { //moving north
                 player_row--; 
-                target_eye_z = eye_z - 2; target_at_z = at_z - 2; 
-                target_eye_x = eye_x; target_at_x = at_x;
+                target_eye_z = eye.z - 2; target_at_z = at.z - 2; 
+                target_eye_x = eye.x; target_at_x = at.x;
             }
             can_animate = 1;
         }
@@ -2116,31 +2132,31 @@ void slide_right() {
 void turn_left(){
     direction = (direction + 3) % 4; // updates player direction counterclockwise THIS NEEDS TO BE HERE
 
-    vec4 at_prime = mv_multiplication(translate(-eye_x, -2, -eye_z), (vec4) {at_x, 2, at_z, 1});
+    vec4 at_prime = mv_multiplication(translate(-eye.x, -2, -eye.z), (vec4) {at.x, 2, at.z, 1});
     vec4 at_prime_2 = mv_multiplication(rotate_y(90), at_prime);
-    vec4 target_at = mv_multiplication(translate(eye_x, 2, eye_z), at_prime_2);
+    vec4 target_at = mv_multiplication(translate(eye.x, 2, eye.z), at_prime_2);
     target_at_x = target_at.x;
     target_at_z = target_at.z;
-    //model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, new_at, (vec4) {0, 1, 0, 0});
+    //model_view = look_at((vec4) {eye.x, 2, eye.z, 1}, new_at, (vec4) {0, 1, 0, 0});
     look_left_animation = 1;
     num_steps = 0;
     is_animating = 1;
 /*
     if (direction == 0) { // facing North
-        at_x = eye_x;
-        at_z = eye_z - 1;
+        at.x = eye.x;
+        at.z = eye.z - 1;
     } else if (direction == 1) { // facing East
-        at_x = eye_x + 1;
-        at_z = eye_z;
+        at.x = eye.x + 1;
+        at.z = eye.z;
     } else if (direction == 2) { // facing South
-        at_x = eye_x;
-        at_z = eye_z + 1;
+        at.x = eye.x;
+        at.z = eye.z + 1;
     } else if (direction == 3) { // facing West
-        at_x = eye_x - 1;
-        at_z = eye_z;
+        at.x = eye.x - 1;
+        at.z = eye.z;
     }
-    model_view = look_at((vec4){eye_x, 2, eye_z, 1}, (vec4){at_x, 2, at_z, 1}, (vec4){0, 1, 0, 0});
-    //model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+    model_view = look_at((vec4){eye.x, 2, eye.z, 1}, (vec4){at.x, 2, at.z, 1}, (vec4){0, 1, 0, 0});
+    //model_view = look_at((vec4) {eye.x, 2, eye.z, 1}, (vec4) {at.x, 2, at.z, 1}, (vec4) {0, 1, 0, 0});
     glutPostRedisplay();
     */
 }
@@ -2148,42 +2164,42 @@ void turn_left(){
 void turn_right(){
     direction = (direction + 1) % 4; //updates player direction clockwise THIS NEEDS TO BE HERE
     
-    vec4 at_prime = mv_multiplication(translate(-eye_x, -2, -eye_z), (vec4) {at_x, 2, at_z, 1});
+    vec4 at_prime = mv_multiplication(translate(-eye.x, -2, -eye.z), (vec4) {at.x, 2, at.z, 1});
     vec4 at_prime_2 = mv_multiplication(rotate_y(-90), at_prime);
-    vec4 target_at = mv_multiplication(translate(eye_x, 2, eye_z), at_prime_2);
+    vec4 target_at = mv_multiplication(translate(eye.x, 2, eye.z), at_prime_2);
     target_at_x = target_at.x;
     target_at_z = target_at.z;
-    //model_view = look_at((vec4) {eye_x, 2, eye_z, 1}, new_at, (vec4) {0, 1, 0, 0});
+    //model_view = look_at((vec4) {eye.x, 2, eye.z, 1}, new_at, (vec4) {0, 1, 0, 0});
     look_right_animation = 1;
     num_steps = 0;
     is_animating = 1;
 /*
     if (direction == 0) { // facing North
-        at_x = eye_x;
-        at_z = eye_z - 1;
+        at.x = eye.x;
+        at.z = eye.z - 1;
     } else if (direction == 1) { // facing East
-        at_x = eye_x + 1;
-        at_z = eye_z;
+        at.x = eye.x + 1;
+        at.z = eye.z;
     } else if (direction == 2) { // facing South
-        at_x = eye_x;
-        at_z = eye_z + 1;
+        at.x = eye.x;
+        at.z = eye.z + 1;
     } else if (direction == 3) { // facing West
-        at_x = eye_x - 1;
-        at_z = eye_z;
+        at.x = eye.x - 1;
+        at.z = eye.z;
     }
-    model_view = look_at((vec4){eye_x, 2, eye_z, 1}, (vec4){at_x, 2, at_z, 1}, (vec4){0, 1, 0, 0});
+    model_view = look_at((vec4){eye.x, 2, eye.z, 1}, (vec4){at.x, 2, at.z, 1}, (vec4){0, 1, 0, 0});
     
     mat4 rot = rotate_y((-90.0 * 180.0) / M_PI);
-    vec4 new_at_point = mv_multiplication(rot, (vec4) {at_x, 2, at_z, 1});
+    vec4 new_at_point = mv_multiplication(rot, (vec4) {at.x, 2, at.z, 1});
     //mat4 tran = translate(0, 0, 0);
-    //vec4 new_eye_point = mv_multiplication(tran, (vec4) {eye_x, 2, eye_z, 1});
+    //vec4 new_eye_point = mv_multiplication(tran, (vec4) {eye.x, 2, eye.z, 1});
     //mat4 m = look_at((vec4) {0, 0, 0, 1}, new_at_point, (vec4) {0, 1, 0, 0});
-    mat4 m1 = look_at((vec4) {0, 0, 0, 1}, (vec4) {at_x, 2, at_z, 1}, (vec4) {0, 1, 0, 0});
+    mat4 m1 = look_at((vec4) {0, 0, 0, 1}, (vec4) {at.x, 2, at.z, 1}, (vec4) {0, 1, 0, 0});
     mat4 m2 = look_at((vec4) {0, 0, 0, 1}, new_at_point, (vec4) {0, 1, 0, 0});
     mat4 m3 = mm_multiplication(m2, m1);
     
     model_view = m3;
-    //model_view = mm_multiplication(look_at((vec4) {eye_x, 2, eye_z, 1}, new_at_point, (vec4) {0, 1, 0, 0}), m3);
+    //model_view = mm_multiplication(look_at((vec4) {eye.x, 2, eye.z, 1}, new_at_point, (vec4) {0, 1, 0, 0}), m3);
     */
     
 }
