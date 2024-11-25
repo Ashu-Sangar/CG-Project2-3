@@ -2130,6 +2130,10 @@ void slide_right() {
 }
 
 void turn_left(){
+    if (is_animating) {
+        return;
+    }
+
     if (direction == 0) { // facing North
         eye.z -=.25;
     } else if (direction == 1) { // facing East
@@ -2163,6 +2167,10 @@ void turn_left(){
 }
 
 void turn_right(){
+    if (is_animating) {
+        return;
+    }
+    
     if (direction == 0) { // facing North
         eye.z -=.25;
     } else if (direction == 1) { // facing East
