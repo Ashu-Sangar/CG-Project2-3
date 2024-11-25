@@ -656,7 +656,7 @@ void init(void)
     at = (vec4) {0, 0, maze_z_size * 3 - 1, 1};
 
     model_view = look_at(eye, at, up);
-    projection = frustum(-0.75, 0.75, -0.75, 0.75, -1, -100);
+    projection = frustum(-1, 1, -1, 1, -1, -100);
 
     normals = (vec4 *) malloc(sizeof(vec4) * num_vertices);
     for(int i = 0; i < num_vertices; i += 36){
@@ -1334,6 +1334,7 @@ void resetPlatform() {
         //glutIdleFunc(idle);
     }
 }
+
 void solve_maze_lh() {
     // Perform one step of the left-hand rule
     if (!inside_maze) {
@@ -1374,7 +1375,6 @@ void solve_maze_lh() {
 
     glutPostRedisplay();
 }
-
 
 void display(void)
 {
@@ -2130,78 +2130,69 @@ void slide_right() {
 }
 
 void turn_left(){
-    direction = (direction + 3) % 4; // updates player direction counterclockwise THIS NEEDS TO BE HERE
+    if (direction == 0) { // facing North
+        eye.z -=.25;
+    } else if (direction == 1) { // facing East
+        eye.x +=.25;
+    } else if (direction == 2) { // facing South
+        eye.z +=.25;
+    } else if (direction == 3) { // facing West
+        eye.x -=.25;
+    }
 
     vec4 at_prime = mv_multiplication(translate(-eye.x, -2, -eye.z), (vec4) {at.x, 2, at.z, 1});
     vec4 at_prime_2 = mv_multiplication(rotate_y(90), at_prime);
     vec4 target_at = mv_multiplication(translate(eye.x, 2, eye.z), at_prime_2);
+
+    if (direction == 0) { // facing North
+        eye.x +=.25;
+    } else if (direction == 1) { // facing East
+        eye.z +=.25;
+    } else if (direction == 2) { // facing South
+        eye.x -=.25;
+    } else if (direction == 3) { // facing West
+        eye.z -=.25;
+    }
+
     target_at_x = target_at.x;
     target_at_z = target_at.z;
-    //model_view = look_at((vec4) {eye.x, 2, eye.z, 1}, new_at, (vec4) {0, 1, 0, 0});
+    direction = (direction + 3) % 4; // updates player direction counterclockwise THIS NEEDS TO BE HERE
     look_left_animation = 1;
     num_steps = 0;
     is_animating = 1;
-/*
-    if (direction == 0) { // facing North
-        at.x = eye.x;
-        at.z = eye.z - 1;
-    } else if (direction == 1) { // facing East
-        at.x = eye.x + 1;
-        at.z = eye.z;
-    } else if (direction == 2) { // facing South
-        at.x = eye.x;
-        at.z = eye.z + 1;
-    } else if (direction == 3) { // facing West
-        at.x = eye.x - 1;
-        at.z = eye.z;
-    }
-    model_view = look_at((vec4){eye.x, 2, eye.z, 1}, (vec4){at.x, 2, at.z, 1}, (vec4){0, 1, 0, 0});
-    //model_view = look_at((vec4) {eye.x, 2, eye.z, 1}, (vec4) {at.x, 2, at.z, 1}, (vec4) {0, 1, 0, 0});
-    glutPostRedisplay();
-    */
 }
 
 void turn_right(){
-    direction = (direction + 1) % 4; //updates player direction clockwise THIS NEEDS TO BE HERE
+    if (direction == 0) { // facing North
+        eye.z -=.25;
+    } else if (direction == 1) { // facing East
+        eye.x +=.25;
+    } else if (direction == 2) { // facing South
+        eye.z +=.25;
+    } else if (direction == 3) { // facing West
+        eye.x -=.25;
+    }
     
     vec4 at_prime = mv_multiplication(translate(-eye.x, -2, -eye.z), (vec4) {at.x, 2, at.z, 1});
     vec4 at_prime_2 = mv_multiplication(rotate_y(-90), at_prime);
     vec4 target_at = mv_multiplication(translate(eye.x, 2, eye.z), at_prime_2);
+
+    if (direction == 0) { // facing North
+        eye.x -=.25;
+    } else if (direction == 1) { // facing East
+        eye.z -=.25;
+    } else if (direction == 2) { // facing South
+        eye.x +=.25;
+    } else if (direction == 3) { // facing West
+        eye.z +=.25;
+    }
+
+    direction = (direction + 1) % 4; //updates player direction clockwise THIS NEEDS TO BE HERE
     target_at_x = target_at.x;
     target_at_z = target_at.z;
-    //model_view = look_at((vec4) {eye.x, 2, eye.z, 1}, new_at, (vec4) {0, 1, 0, 0});
     look_right_animation = 1;
     num_steps = 0;
     is_animating = 1;
-/*
-    if (direction == 0) { // facing North
-        at.x = eye.x;
-        at.z = eye.z - 1;
-    } else if (direction == 1) { // facing East
-        at.x = eye.x + 1;
-        at.z = eye.z;
-    } else if (direction == 2) { // facing South
-        at.x = eye.x;
-        at.z = eye.z + 1;
-    } else if (direction == 3) { // facing West
-        at.x = eye.x - 1;
-        at.z = eye.z;
-    }
-    model_view = look_at((vec4){eye.x, 2, eye.z, 1}, (vec4){at.x, 2, at.z, 1}, (vec4){0, 1, 0, 0});
-    
-    mat4 rot = rotate_y((-90.0 * 180.0) / M_PI);
-    vec4 new_at_point = mv_multiplication(rot, (vec4) {at.x, 2, at.z, 1});
-    //mat4 tran = translate(0, 0, 0);
-    //vec4 new_eye_point = mv_multiplication(tran, (vec4) {eye.x, 2, eye.z, 1});
-    //mat4 m = look_at((vec4) {0, 0, 0, 1}, new_at_point, (vec4) {0, 1, 0, 0});
-    mat4 m1 = look_at((vec4) {0, 0, 0, 1}, (vec4) {at.x, 2, at.z, 1}, (vec4) {0, 1, 0, 0});
-    mat4 m2 = look_at((vec4) {0, 0, 0, 1}, new_at_point, (vec4) {0, 1, 0, 0});
-    mat4 m3 = mm_multiplication(m2, m1);
-    
-    model_view = m3;
-    //model_view = mm_multiplication(look_at((vec4) {eye.x, 2, eye.z, 1}, new_at_point, (vec4) {0, 1, 0, 0}), m3);
-    */
-    
 }
 
 void create_rotation() {
